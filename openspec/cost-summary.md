@@ -13,7 +13,7 @@ pricing. Figures are order-of-magnitude.
 | Identity and enrolment (IDE) | ≈ $19 (Cognito excluded) | ≈ $1,700 (+ Cognito if SAML at scale) | Magic-link email; KMS signing |
 | Course authoring and content (CAC) | ≈ $8 | ≈ $5,000 | CloudFront egress above the free tier |
 | Activities and assessment (ACT) | ≈ $8.5 | ≈ $850 | API reads; ICS polling |
-| Communication and forums (COM) | see COM cost model | — | SES email |
+| Communication and forums (COM) | ≈ $25 | ≈ $2,500 | SES email; thread and inbox folds |
 | LTI interop (LTI) | ≈ $4.5 | ≈ $450 | AGS score posts and ledger |
 | Data interop (DIO) | ≈ $6 | ≈ $530 | OneRoster provider reads; Caliper egress |
 | Credentialing and competencies (CRD) | ≈ $10–14 | ≈ $700 | KMS key rental; 24 h Step Functions waits |

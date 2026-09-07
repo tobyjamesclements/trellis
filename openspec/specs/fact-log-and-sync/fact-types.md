@@ -48,6 +48,13 @@ encrypted under the tenant key; `S` = system, tenant key).
 | `msg.v1` | COM | L (sender) | `_msg` | self | P | Direct message |
 | `notify.pref.v1` | COM | L | `_profile` | self | P | Notification preferences |
 | `announce.v1` | COM | C | `_struct` | instructor | T | Announcement |
+| `forum.policy.v1` | COM | C | `_forum#<id>` | instructor / tutor / moderator | T | Thread, post or forum moderation state: lock, unlock, pin, unpin, hold, release (max-by-HLC) |
+| `report.v1` | COM | L (reporter) | `_forum#<id>` | self | P | Report of a post for moderation |
+| `read.v1` | COM | L (reader) | `_msg` / `_forum#<id>` | self | P | Read-through marker for a conversation, inbox, forum or thread (max-by-HLC) |
+| `conv.v1` | COM | G (conversation) | `_msg` | creator / member | P | Group conversation created; membership or name changed |
+| `push.sub.v1` | COM | L | `_profile` | self (subscribing device) | P | Web push (VAPID) subscription for one device |
+| `notify.unsub.v1` | COM | L | `_profile` | region system device (home) via signed unsubscribe token | P | Channel or kind unsubscribed from an email link |
+| `notify.delivery.v1` | COM | L (recipient) | `_profile` | region system device (home) | P | Delivery outcome from SES or a push service: bounce, complaint, gone, failed |
 | `lti.reg.v1` | LTI | T | `_admin` | admin / dynamic registration | T | Tool or platform registration |
 | `lti.deploy.v1` | LTI | T | `_admin` | admin | T | Deployment in a context |
 | `lti.link.v1` | LTI | C | `_struct` | editor / deep linking | T | Resource link placement |

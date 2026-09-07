@@ -47,10 +47,6 @@ duplicate-issuance and award-reversal reconciliation paths.
 - CRD-13
 - CRD-14
 - CRD-15
-- CRD-16
-- CRD-17
-- CRD-18
-- CRD-19
 
 ## Dependencies
 

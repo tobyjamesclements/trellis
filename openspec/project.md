@@ -453,7 +453,7 @@ openspec/
   known-tensions.md                where the model breaks, options, recommendations
   tradeoffs.md                     consolidated trade-off register
   cost-summary.md                  roll-up of the per-capability cost models
-  adr/ADR-001 … ADR-020            load-bearing decisions
+  adr/ADR-001 … ADR-022            load-bearing decisions
   specs/
     fact-log-and-sync/             FLS  the grow-only set and the device sync protocol
     derivation-engine/             DRV  marks, grades, completion as pure functions
@@ -467,6 +467,8 @@ openspec/
     credentialing-and-competencies/ CRD CASE, Open Badges 3.0, CLR 2.0
     administration-and-tenancy/    ADM  tenants, zones, failover, retention, erasure, cost
   changes/
-    001-platform-foundation … 012-administration-console
+    001-platform-foundation … 012-administration-and-compliance
   tools/gen-deltas.py              generates change delta specs from canonical specs
+  tools/check-tree.py              structural and cross-reference checks
+  tools/shall-body.py              keeps the SHALL statement on each requirement's first body line
 ```
