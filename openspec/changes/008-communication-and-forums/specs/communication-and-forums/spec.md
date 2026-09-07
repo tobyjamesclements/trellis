@@ -7,57 +7,46 @@
 ### Requirement: The system SHALL record every forum post, reply, edit and removal as facts under the author's own key and derive the current text from them [COM-01]
 
 The system SHALL record every forum post, reply, edit and removal as facts
-under the author's own key and derive the current text from them. A post is
-a `post.v1` fact with `subject = author` and `scope = _forum#<id>`; a reply
-names its parent in `refs`. An edit is a `post.edit.v1` superseding fact
-targeting the post; the derived current text is the latest effective edit by
-`(sync_hlc, fact_id)` and every earlier version stays visible as history.
-Removal is a `void.v1` (FLS-07) by the author, a moderator or an admin: the
-derived node renders "removed by ⟨actor_role⟩" with no text, its replies stay
-attached, and the fact remains in the log, encrypted, until an ADM-12
-takedown shreds its body. No API updates a post item in place.
+under the author's own key and derive the current text from them. A post is a
+`post.v1` fact with `subject = author` and `scope = _forum#<id>`; a reply
+names its parent in `refs`; an edit is a `post.edit.v1` superseding fact, the
+derived current text is the latest effective edit by `(sync_hlc, fact_id)`,
+and earlier versions stay visible as history. Removal is a `void.v1` (FLS-07)
+by the author, a moderator or an admin: the node renders "removed by
+⟨actor_role⟩" with no text, its replies stay attached, and the fact remains in
+the log, encrypted, until an ADM-12 takedown shreds its body.
 
 #### Scenario: Reply and edit
 - **WHEN** a learner replies to a post and later edits the reply twice
-- **THEN** the thread view shows the reply with the second edit's text, `edited = 2` and a history link listing all three facts in HLC order
-- **AND** all three facts sit in the learner's stream `(device, learner, _forum#<id>)` and none has been modified
+- **THEN** the thread view shows the second edit's text, `edited = 2` and a history link listing all three facts in HLC order, none of them modified
 
 #### Scenario: Moderator removes a post that has replies
 - **WHEN** a tutor appends `void.v1 { target: post, actor_role: tutor }`
-- **THEN** every view that folds the void shows the node as "removed by tutor" with its replies still in place
-- **AND** the post fact is unchanged, still exported with the log (FLS-20), and only a `takedown.v1` (ADM-12) destroys its content
+- **THEN** every view that folds the void shows "removed by tutor" with the replies in place, and the post fact is unchanged and exported with the log (FLS-20) until a `takedown.v1` (ADM-12) destroys its content
 
 ### Requirement: The system SHALL define forums as course-structure activities whose type and behaviour are versioned policy [COM-02]
 
 The system SHALL define forums as course-structure activities whose type and
-behaviour are versioned policy. A forum is created by a `struct.v1` operation
-of kind `forum` (CAC-01) and configured by the forum block of `policy.v1`
-(CAC-10): type (`standard`, `qna`, `single`, `blog`), group mode,
-subscription mode, anonymity, rating scale and aggregate, word filters,
-posting rate, digest default and maximum depth. A policy change re-derives
-the affected views under a new generation (MVA-12); it never migrates them.
-The thread view header carries the `policy_version` it was projected under.
+behaviour are versioned policy. A forum is a `struct.v1` operation of kind
+`forum` (CAC-01) configured by the forum block of `policy.v1` (CAC-10); a
+policy change re-derives the affected views under a new generation (MVA-12)
+and never migrates them. The thread view header carries the `policy_version`
+it was projected under.
 
 #### Scenario: Forum type changed from standard to Q&A
 - **WHEN** an editor publishes a policy that changes an existing forum to `qna`
 - **THEN** the next generation of every (forum, cohort) view applies Q&A visibility under the new `policy_version` and no post fact changes
 
-#### Scenario: Unknown forum type from a newer editor
-- **WHEN** a policy names a forum type this engine version does not know
-- **THEN** the view is projected as `standard` with `flags = [unknown_type]` until an engine that understands it is deployed (FLS-15)
-
 ### Requirement: The system SHALL assign every forum and message fact to a view partition from its plaintext metadata and never reject a mismatch [COM-03]
 
-The system SHALL assign every forum and message fact to a view partition
-from its plaintext metadata and never reject a mismatch. The stream router
-(FLS-17) routes `_forum#<id>` facts to SQS FIFO `com-views` with group
-`forum#cohort`, taking `cohort` from the fact's metadata (`_all` under
-`group_mode = none`) and checking it against the author's membership in the
-regional roster (IDE-05); a mismatch routes the fact to the author's actual
-cohort with `flags = [cohort_mismatch]`. Course-subject facts
-(`forum.policy.v1`, `announce.v1`) fan out to one message per cohort of the
-course; `_msg` facts fan out to one message per recipient (group =
-`recipient#_msg`); COM `_profile` facts route by subject.
+The system SHALL assign every forum and message fact to a view partition from
+its plaintext metadata and never reject a mismatch. The stream router (FLS-17)
+routes `_forum#<id>` facts to SQS FIFO `com-views` with group `forum#cohort`,
+taking `cohort` from the metadata (`_all` under `group_mode = none`) and
+checking it against the regional roster (IDE-05); a mismatch routes the fact
+to the author's actual cohort with `flags = [cohort_mismatch]`. Course-subject
+facts (`forum.policy.v1`, `announce.v1`) fan out to one message per cohort of
+the course and `_msg` facts to one message per recipient.
 
 #### Scenario: Learner moved between cohorts
 - **WHEN** the `enrol.v1` moving a learner from cohort A to B has not replicated to the region that ingests their reply, whose metadata names A
@@ -69,18 +58,17 @@ course; `_msg` facts fan out to one message per recipient (group =
 
 ### Requirement: The system SHALL materialise thread views per (forum, cohort) as region-owned derived items: a tree by refs, ordered by (sync_hlc, fact_id), with a freshness block [COM-04]
 
-The system SHALL materialise thread views per (forum, cohort) as
-region-owned derived items: a tree by `refs`, ordered by `(sync_hlc,
-fact_id)`, with a freshness block. `thread-updater` folds forum facts with
-the vector as cursor (MVA-03) into a thread list and one node per post;
-siblings are ordered by `(sync_hlc, fact_id)` and stored under a
-materialised path so a thread is one range query in display order, and
-every response carries the MVA-02 freshness block. A post synced after other
-posts in its thread is inserted at its `(sync_hlc, fact_id)` position and
-marked "posted offline at ⟨device_hlc⟩, synced ⟨sync_hlc⟩" whenever
-`sync_hlc − device_hlc` exceeds 5 minutes. A reply whose parent has not
-folded is held as an orphan under a placeholder and re-parented when the
-parent arrives. A shredded post (ADM-12) renders as "removed".
+The system SHALL materialise thread views per (forum, cohort) as region-owned
+derived items: a tree by `refs`, ordered by `(sync_hlc, fact_id)`, with a
+freshness block. `thread-updater` folds forum facts with the vector as cursor
+(MVA-03) into a thread list and one node per post, siblings ordered by
+`(sync_hlc, fact_id)` under a materialised path, and every response carries
+the MVA-02 freshness block. A post synced after other posts in its thread is
+inserted at its `(sync_hlc, fact_id)` position and marked "posted offline at
+⟨device_hlc⟩, synced ⟨sync_hlc⟩" when `sync_hlc − device_hlc` exceeds 5
+minutes; a reply whose parent has not folded waits as an orphan under a
+placeholder until the parent arrives. A shredded post (ADM-12) renders as
+"removed".
 
 #### Scenario: Offline reply synced next morning
 - **WHEN** a reply written at 22:10 offline is synced at 08:30
@@ -88,34 +76,24 @@ parent arrives. A shredded post (ADM-12) renders as "removed".
 
 #### Scenario: Reply arrives before its parent
 - **WHEN** a reply replicates from region B before its parent, written on a device that has not yet synced, reaches region A
-- **THEN** A's view shows it under "reply to a post not yet synced" and the freshness block names the pending stream
-- **AND** when the parent folds, the reply is re-parented in the same batch and the placeholder disappears
-
-#### Scenario: Learner checks that a post is reflected
-- **WHEN** the device vector for the learner's forum stream is ahead of the view's cursor row
-- **THEN** `POST /views/{partition}/dominates` (MVA-05) lists the stream as behind and the client shows "1 post not yet reflected"
+- **THEN** A's view shows it under "reply to a post not yet synced", the freshness block names the pending stream, and when the parent folds the reply is re-parented in the same batch
 
 ### Requirement: The system SHALL apply forum-type visibility rules as projections over derived state, enforced on read by the server and mirrored by the client [COM-05]
 
-The system SHALL apply forum-type visibility rules as projections over
-derived state, enforced on read by the server and mirrored by the client.
-In a `qna` forum, a thread's replies are projected to a reader as hidden
-(count only, no body, no author) unless the reader is a moderator, the
-thread's author, or has an effective `post.v1` in that thread folded in the
-serving region's view with `sync_hlc` older than `qna_reveal_delay`. In a
+The system SHALL apply forum-type visibility rules as projections over derived
+state, enforced on read by the server and mirrored by the client. In a `qna`
+forum a thread's replies are hidden (count only) from a reader who is neither
+a moderator nor the thread's author and has no effective `post.v1` in the
+thread folded in the serving region's view older than `qna_reveal_delay`; in a
 `single` forum the earliest root by `(sync_hlc, fact_id)` is the discussion
-and any later root is projected as a reply to it, flagged `extra_root`. In a
-`blog` forum the thread list carries full root bodies. A modified client may
-request the full thread or push a stub answer: the server serves only what
-its derived state permits, and the stub is accepted, never rejected, visible
-to moderators, and subject to the reveal delay.
-
-#### Scenario: Learner asks before answering
-- **WHEN** a learner without a post in a Q&A thread requests it
-- **THEN** the response carries the question, "7 answers hidden until you post", and no reply body or author
+and later roots are projected as replies flagged `extra_root`; in a `blog`
+forum the list carries full root bodies. A modified client may request the
+full thread or push a stub answer: the server serves only what its derived
+state permits, and the stub is accepted, never rejected, and flagged
+`low_content` for moderators.
 
 #### Scenario: Answer posted in another region
-- **WHEN** the learner's answer was ingested in region B and has not replicated to region A, which serves the view
+- **WHEN** a learner's answer was ingested in region B and has not replicated to region A, which serves the view
 - **THEN** A still hides the answers, and the client, comparing its vector with the freshness block, shows "your answer is not yet reflected here; answers appear once it is"
 
 #### Scenario: Stub-and-peek from a modified client
@@ -126,18 +104,17 @@ to moderators, and subject to the reveal delay.
 
 The system SHALL support anonymous posting by redacting the author in every
 projection while keeping the fact under the author's key.
-`post.v1.body.anonymous = true` (permitted by policy `anonymity = optional |
-forced`) leaves the fact in the author's stream, but every projection to a
-non-moderator (thread view, thread list, search results, notifications,
-digests, the Caliper projection DIO-08) renders `author = anonymous` with no
-subject identifier; moderators see the author with the marker "anonymous to
-learners". Forum-scope `refs` carry `fact_id` only and the pointer map lives
-in the view, so no projection exposes the author's PK.
+`post.v1.body.anonymous = true` (where policy permits) leaves the fact in the
+author's stream, but every projection to a non-moderator (thread view, list,
+search, notifications, digests, the Caliper projection DIO-08) renders `author
+= anonymous` with no subject identifier, while moderators see the author
+marked "anonymous to learners". Learners read other learners' posts only
+through these projections, never by pulling raw forum streams (FLS-10,
+IDE-09).
 
 #### Scenario: Reply to an anonymous post
 - **WHEN** a learner replies to an anonymous post
-- **THEN** the reply's `refs` names only the parent's `fact_id`; the replier's client never receives the parent author's PK
-- **AND** the anonymous author learns of the reply through their own inbox view and, if subscribed, a notification that names neither party to the other
+- **THEN** the reply's `refs` names only the parent's `fact_id`, the replier's client never receives the parent author's PK, and the anonymous author learns of the reply through their own inbox view
 
 #### Scenario: Moderator view
 - **WHEN** a tutor opens the thread
@@ -145,32 +122,25 @@ in the view, so no projection exposes the author's PK.
 
 ### Requirement: The system SHALL emit notifications only from the tenant's home region through a gated emitter keyed by (trigger, channel, recipient) [COM-07]
 
-The system SHALL emit notifications only from the tenant's home region
-through a gated emitter keyed by (trigger, channel, recipient).
-`notify-emitter` runs in every region but proceeds only when the registry
-`TN#` item (ADM-03, 60 s cache) names its region as the tenant's home. Every
-send has idempotency key `(trigger fact_id or intent_id, channel,
-recipient)`; before sending, the emitter reads the sent ledger for that key
-under every region's ledger PK (FLS pattern 7) and then performs a
-region-local conditional put of its own ledger item; a failed condition
-means skip. Monotone triggers (a new post to a subscriber, an announcement,
-a message, `publish.conflict` and `deadline.changed` from CAC-12, cap
-reconciliation from IDE-06, `credential.issued` from CRD-06 keyed by
-credential id, break-glass audits from ADM) are sent after a 60 s coalescing
-delay, one send per (recipient, channel) covering everything that
-accumulated. Non-monotone triggers (at-risk MVA-09, completion DRV-11,
-deadline-approaching-and-not-submitted and release ACT-16, slot apologies
-ACT-09) arrive only as MVA SideEffectIntents (MVA-08) after their stability
-window. The emitter checks `comms` consent (ADM-16) and preferences (COM-08)
-at emit time. Duplicate sends are possible during a home-region flip
-(ADM-03) and are bounded by replication lag plus the 60 s cache TTL (target
-≤ 90 s, ADR-012); they are not otherwise possible. Magic-link mail (IDE) is
-the one exception: it is request-scoped, sent by the serving region, and
-needs no ledger.
-
-#### Scenario: Three replies in a minute
-- **WHEN** three replies to a subscribed thread fold within 60 s
-- **THEN** the subscriber receives one push and one email listing three replies, and three ledger items exist, one per trigger fact
+The system SHALL emit notifications only from the tenant's home region through
+a gated emitter keyed by (trigger, channel, recipient). `notify-emitter` runs
+in every region but proceeds only when the registry `TN#` item (ADM-03, 60 s
+cache) names its region as home; every send has idempotency key `(trigger
+fact_id or intent_id, channel, recipient)`, checked against the sent ledger
+under every region's ledger PK (FLS pattern 7) and then claimed by a
+region-local conditional put of the emitter's own ledger item before sending.
+Monotone triggers (new post, announcement, message; `publish.conflict` and
+`deadline.changed` from CAC-12; cap reconciliation IDE-06; `credential.issued`
+CRD-06, keyed by credential id; ADM break-glass audits) send after a 60 s
+coalescing delay, one send per (recipient, channel); non-monotone triggers
+(at-risk MVA-09, completion DRV-11, deadline-approaching-and-not-submitted and
+release ACT-16, slot apologies ACT-09) arrive only as MVA SideEffectIntents
+(MVA-08) after their stability window. Duplicate sends are possible during a
+home-region flip (ADM-03), bounded by replication lag plus the 60 s cache TTL
+(target ≤ 90 s, ADR-012), and not otherwise; the emitter checks `comms`
+consent (ADM-16) and preferences (COM-08) at emit time, and magic-link mail
+(IDE) is the one exception, sent request-scoped by the serving region with no
+ledger.
 
 #### Scenario: Home region flips mid-send
 - **WHEN** the registry moves the home from region A to B while A's emitter still holds a cached assignment and B has not yet received A's ledger item for a trigger
@@ -178,20 +148,19 @@ needs no ledger.
 
 #### Scenario: At-risk alert
 - **WHEN** MVA-08 publishes `effect.ready { intent_id, kind: at_risk }` after its 5-minute window
-- **THEN** the home-region emitter sends to the instructors named by the course policy with key `(intent_id, channel, recipient)`, and nothing about at-risk state is ever sent from the fold path
+- **THEN** the home-region emitter sends to the instructors named by course policy with key `(intent_id, channel, recipient)`; nothing about at-risk state is ever sent from the fold path
 
 ### Requirement: The system SHALL apply notification preferences, quiet hours and per-recipient daily caps by deferring, never dropping [COM-08]
 
-The system SHALL apply notification preferences, quiet hours and
-per-recipient daily caps by deferring, never dropping. `notify.pref.v1` is
-LWW by HLC per field over tenant defaults; the emitter reads the derived
-preference and suppression items (COM-18). The daily cap per channel
-(default 20 email, 50 push) is a count over all regions' ledgers for the
-day; a send beyond it, or inside quiet hours, is deferred to the recipient's
-next digest or the end of quiet hours while the in-app item is written at
-once. Every email carries RFC 8058 one-click `List-Unsubscribe` headers
-whose signed token, when used, appends `notify.unsub.v1` for that channel
-and kind.
+The system SHALL apply notification preferences, quiet hours and per-recipient
+daily caps by deferring, never dropping. `notify.pref.v1` is LWW by HLC per
+field over tenant defaults, read together with the derived suppression item
+(COM-18) at emit time. The daily cap per channel (default 20 email, 50 push)
+is a count over all regions' ledgers for the day; a send beyond it, or inside
+quiet hours, is deferred to the next digest or the end of quiet hours while
+the in-app item is written at once. Every email carries RFC 8058 one-click
+`List-Unsubscribe` headers whose signed token appends `notify.unsub.v1` for
+that channel and kind.
 
 #### Scenario: Cap reached
 - **WHEN** a learner already has 20 email ledger items today and a 21st trigger fires
@@ -199,25 +168,24 @@ and kind.
 
 #### Scenario: One-click unsubscribe
 - **WHEN** a mail client POSTs to the `List-Unsubscribe-Post` URL
-- **THEN** `unsub-api` verifies the token and appends `notify.unsub.v1 { channel: email, kinds: [post] }` under the recipient by the region system device
-- **AND** that kind is suppressed wherever the fact has replicated
+- **THEN** `unsub-api` verifies the token and appends `notify.unsub.v1 { channel: email, kinds: [post] }` under the recipient by the region system device, and that kind is suppressed wherever the fact has replicated
 
 ### Requirement: The system SHALL generate daily and weekly digests in the home region from thread views and record the vector each digest covered [COM-09]
 
 The system SHALL generate daily and weekly digests in the home region from
-thread views and record the vector each digest covered. EventBridge
-Scheduler fires each tenant's digest schedules in every region and only the
-home region proceeds. A Step Functions Express `digest-run` maps over
-(forum, cohort) views with digest subscribers (and observers a learner has
-opted in, IDE-15), snapshots each view's cursor set to S3 (content-addressed,
-CRR per ADR-017), selects the posts whose `(stream, seq)` lie outside the
-recipient's previous coverage, composes one email per recipient and hands it
-to the emitter with key `(digest#<recipient>#<period>, email, recipient)`.
-The ledger item records per view `(vector_digest, max_sync_hlc,
-cursor_ref)`, so the footer states "this digest covered posts synced before
-⟨max_sync_hlc⟩ in ⟨region⟩", and a post that folds later is carried into
-the next digest marked "synced after the previous digest". A budget throttle
-(`throttle.digests`, ADM-15) delays a run; it never discards one.
+thread views and record the vector each digest covered. EventBridge Scheduler
+fires each tenant's schedules in every region, only the home region proceeds,
+and a Step Functions Express `digest-run` maps over (forum, cohort) views with
+digest subscribers (and opted-in observers, IDE-15), snapshots each view's
+cursor set to S3 (content-addressed, CRR per ADR-017), selects the posts whose
+`(stream, seq)` lie outside the recipient's previous coverage, and hands one
+email per recipient to the emitter with key `(digest#<recipient>#<period>,
+email, recipient)`. The ledger item records per view `(vector_digest,
+max_sync_hlc, cursor_ref)`, so the footer states "this digest covered posts
+synced before ⟨max_sync_hlc⟩ in ⟨region⟩" and a post that folds later is
+carried into the next digest marked "synced after the previous digest". A
+budget throttle (`throttle.digests`, ADM-15) delays a run and never discards
+one.
 
 #### Scenario: Daily digest
 - **WHEN** the 06:00 schedule fires for a tenant whose home is eu-west-1
@@ -229,15 +197,14 @@ the next digest marked "synced after the previous digest". A budget throttle
 
 ### Requirement: The system SHALL express locking and pinning as policy facts and treat a lock as advisory [COM-10]
 
-The system SHALL express locking and pinning as policy facts and treat a
-lock as advisory. `forum.policy.v1 { target, op }` by an instructor, a tutor
-or a `moderator` role grant (IDE-08) sets the state per `(target,
-attribute)` as the latest by `(sync_hlc, fact_id)`; pinned threads sort
-first. A post whose `sync_hlc` is after the effective lock's is accepted and
-flagged `after_lock` (plus `claimed_before_lock` when its `device_hlc`
-precedes the lock); it is visible, listed in the moderation queue, and a
-moderator may void it. The client hides the reply control on a locked
-thread; the server never rejects.
+The system SHALL express locking and pinning as policy facts and treat a lock
+as advisory. `forum.policy.v1 { target, op }` by an instructor, a tutor or a
+`moderator` role grant (IDE-08) sets the state per `(target, attribute)` as
+the latest by `(sync_hlc, fact_id)`, and pinned threads sort first. A post
+whose `sync_hlc` is after the effective lock's is accepted and flagged
+`after_lock` (plus `claimed_before_lock` when its `device_hlc` precedes the
+lock), stays visible, is listed in the moderation queue, and may be voided by
+a moderator; the client hides the reply control and the server never rejects.
 
 #### Scenario: Offline reply to a thread locked meanwhile
 - **WHEN** a learner replies offline at 14:00, a tutor locks the thread at 15:00 and the reply syncs at 16:00
@@ -249,25 +216,20 @@ thread; the server never rejects.
 
 ### Requirement: The system SHALL fold ratings monotonically per post and compute "top rated" as a non-monotone recompute [COM-11]
 
-The system SHALL fold ratings monotonically per post and compute "top
-rated" as a non-monotone recompute. `rating.v1 { target, value }` is a
-register per `(rater, post)` whose effective value is the latest by
-`(sync_hlc, fact_id)`; each node's `(sum, count, max)` is folded from the
-effective registers and adjusted in place when a register advances. Scale,
-eligible roles, aggregate and rating window are forum policy; a rating
-outside the window is folded and flagged, not rejected. `NM#top_rated` per
-(forum, cohort) is recomputed wholesale at a vector by `forum-nm-recompute`
-(MVA-07). The per-author aggregate of ratings received is exposed for the
-derivation engine to fold into a forum grade under `policy.v1` (DRV-10); no
-grade is stored here.
+The system SHALL fold ratings monotonically per post and compute "top rated"
+as a non-monotone recompute. `rating.v1 { target, value }` is a register per
+`(rater, post)` whose effective value is the latest by `(sync_hlc, fact_id)`;
+each node's `(sum, count, max)` is folded from the effective registers and
+adjusted in place when a register advances, and a rating outside the policy's
+window is folded and flagged, not rejected. `NM#top_rated` per (forum, cohort)
+is recomputed wholesale at a vector by `forum-nm-recompute` (MVA-07); the
+per-author aggregate of ratings received is exposed for the derivation engine
+to fold into a forum grade under `policy.v1` (DRV-10), and no grade is stored
+here.
 
 #### Scenario: Rater changes their mind
 - **WHEN** a tutor rates a post 5 and then 3
 - **THEN** the node's `sum` moves from 5 to 3 with `count = 1`, both facts remain, and the top-rated row is recomputed at the next debounce
-
-#### Scenario: Two regions, two vectors
-- **WHEN** region A has folded 40 ratings and region B 38
-- **THEN** their `NM#top_rated` rows may differ; each is served with its own `vector_digest` and neither is merged into the other
 
 ### Requirement: The system SHALL derive subscriptions from forum policy and subscribe.v1 facts [COM-12]
 
@@ -276,33 +238,27 @@ facts. Policy sets the mode (`optional`, `forced`, `auto`, `disabled`);
 `subscribe.v1 { target, mode }` is the learner's latest choice per forum or
 thread, and posting auto-subscribes to the thread where policy says so. The
 derived subscriber set per (forum, cohort) feeds the emitter and the digest
-run; under `forced`, cohort membership is the subscription and no
-per-learner fact is needed.
+run; under `forced`, cohort membership is the subscription and no per-learner
+fact is needed.
 
 #### Scenario: Digest instead of immediate
 - **WHEN** a learner appends `subscribe.v1 { target: forum, mode: digest }`
 - **THEN** new posts in that forum produce in-app items but no immediate email or push, and are included in the next digest
 
-#### Scenario: Forced subscription
-- **WHEN** a cohort member has never touched subscription settings for a `forced` forum
-- **THEN** the subscriber set lists them as `immediate` and a new thread reaches them through every channel their preferences allow
-
 ### Requirement: The system SHALL provide moderation through report facts, moderator voids, a derived moderation queue, and advisory word filters and rate limits with server-side flagging [COM-13]
 
-The system SHALL provide moderation through report facts, moderator voids,
-a derived moderation queue, and advisory word filters and rate limits with
+The system SHALL provide moderation through report facts, moderator voids, a
+derived moderation queue, and advisory word filters and rate limits with
 server-side flagging. `report.v1 { target, reason }` places the post in the
-(forum, cohort) moderation queue with its report count; the queue also
-lists posts flagged `after_lock`, `rate`, `word_filter`, `extra_root`,
-`cohort_mismatch` and `low_content`. Word filters and `post_rate { n, per }`
-are `policy.v1` content that the client applies as warnings or delays and
-the server never enforces: on fold, a matching post is flagged
-`word_filter`, and a post beyond `n` effective posts by the same author
-within `per` (by `sync_hlc`) is flagged `rate`. Under a filter with `action
-= hold` the post is projected to non-moderators as "held for review" until
-a `forum.policy.v1 { op: release }` or a void. Removal is `void.v1`
-(COM-01); destruction is an ADM-12 takedown. Two reports of one post from
-two devices are both accepted.
+(forum, cohort) moderation queue, which also lists posts flagged `after_lock`,
+`rate`, `word_filter`, `extra_root`, `cohort_mismatch` and `low_content`. Word
+filters and `post_rate { n, per }` are `policy.v1` content that the client
+applies as warnings or delays and the server never enforces: on fold a
+matching post is flagged `word_filter`, a post beyond `n` effective posts by
+the same author within `per` (by `sync_hlc`) is flagged `rate`, and under a
+filter with `action = hold` the post is projected to non-moderators as "held
+for review" until a `forum.policy.v1 { op: release }` or a void. Removal is
+`void.v1` (COM-01) and destruction an ADM-12 takedown.
 
 #### Scenario: Held post
 - **WHEN** a post matches a `hold` filter
@@ -316,41 +272,30 @@ two devices are both accepted.
 
 The system SHALL record announcements as course-subject facts fanned out to
 cohort members' inboxes. `announce.v1` (subject = course, scope `_struct`,
-writer instructor) is a read-only feed item, not a thread. The router fans
-it out per cohort (COM-03); `inbox-updater` in every region writes the
-cohort feed item and one inbox item per member (≤ 2,000 per cohort,
-ADR-019); the home-region emitter treats it as a monotone trigger under
-forced subscription with the 60 s coalescing delay. A member enrolled later
-sees it in the feed with its original `sync_hlc` and receives no
-notification for it.
+writer instructor) is a read-only feed item, not a thread; the router fans it
+out per cohort (COM-03), `inbox-updater` in every region writes the cohort
+feed item and one inbox item per member (≤ 2,000 per cohort, ADR-019), and the
+home-region emitter treats it as a monotone trigger under forced subscription
+with the 60 s coalescing delay. A member enrolled later sees it in the feed
+with its original `sync_hlc` and gets no notification.
 
 #### Scenario: Announcement during a replication interruption
 - **WHEN** replication to region B is interrupted and an instructor posts an announcement in A, the home region
 - **THEN** A's members see it and are emailed once; B's members see it when replication resumes, with the freshness block showing the delay, and are not emailed again
 
-#### Scenario: Late enrolment
-- **WHEN** a learner joins the cohort a week after an announcement
-- **THEN** the announcement is in their feed, dated by its `sync_hlc`, and no ledger item is written for them
-
 ### Requirement: The system SHALL record direct and group messages as sender-keyed facts and fan them out to recipient inbox views [COM-15]
 
 The system SHALL record direct and group messages as sender-keyed facts and
-fan them out to recipient inbox views. `msg.v1` is stored under the sender's
-PK in scope `_msg` with the recipient or `conversation_id` in plaintext
-metadata; the router emits one `com-views` message per recipient (group =
-`recipient#_msg`) and `inbox-updater` writes the conversation item in each
-recipient's mailbox, in every region. Group conversations are `conv.v1`
-facts under a `G` subject; membership intervals are derived per region, a
-message fans out to the members the folding region currently derives, and a
-member added later sees only messages synced after their add. Conversations
-are bounded at 200 members; cohort-wide communication is a forum or an
-announcement. Bodies are encrypted under the sender's data key, so a
-sender's erasure (ADM-11) removes their messages from every mailbox on
-recompute (MVA-15).
-
-#### Scenario: Message across regions
-- **WHEN** a learner in region A messages a learner whose device syncs with region B
-- **THEN** the fact replicates, B's `inbox-updater` writes the recipient's conversation item, and the recipient's next inbox read shows it with the freshness block
+fan them out to recipient inbox views. `msg.v1` sits under the sender's PK in
+scope `_msg` with the recipient or `conversation_id` in plaintext metadata;
+the router emits one `com-views` message per recipient and `inbox-updater`
+writes the conversation item in each recipient's mailbox, in every region.
+Group conversations are `conv.v1` facts under a `G` subject, bounded at 200
+members; membership intervals are derived per region, a message fans out to
+the members the folding region currently derives, and a member added later
+sees only messages synced after their add. Bodies are encrypted under the
+sender's data key, so a sender's erasure (ADM-11) removes their messages from
+every mailbox on recompute (MVA-15).
 
 #### Scenario: Removal not yet replicated
 - **WHEN** a member is removed from a conversation in region B and a message is sent in region A before the removal replicates
@@ -359,36 +304,29 @@ recompute (MVA-15).
 ### Requirement: The system SHALL record read state as read-through facts and derive unread counts without depending on the device clock [COM-16]
 
 The system SHALL record read state as read-through facts and derive unread
-counts without depending on the device clock. `read.v1 { target,
-through_hlc }` is written by the reader's device for a conversation, the
-notification inbox, a forum or a thread; the effective value per `(reader,
-target)` is the maximum `through_hlc`. A node is unread if its `sync_hlc`
-exceeds `through_hlc` or if the region folded it after the read fact's own
-`sync_hlc`, so a post that folded into the past of a thread is still
-surfaced as new. "Seen" indicators shown to a sender are projections of the
-recipient's `read.v1` and may lag.
+counts without depending on the device clock. `read.v1 { target, through_hlc }`
+is written by the reader's device for a conversation, the notification inbox, a
+forum or a thread, and the effective value per `(reader, target)` is the maximum
+`through_hlc`. A node is unread if its `sync_hlc` exceeds `through_hlc` or if
+the region folded it after the read fact's own `sync_hlc`, so a post that folded
+into the past of a thread is still surfaced as new; "seen" indicators shown to a
+sender are projections of the recipient's `read.v1` and may lag.
 
 #### Scenario: Post arrives in the past
 - **WHEN** a learner reads a thread through 10:04 and a post stamped 10:00 in another region replicates at 10:05
 - **THEN** the next read reports "1 new post earlier in the thread", because the node folded after the read was recorded, and the client offers a jump to it
 
-#### Scenario: Two devices
-- **WHEN** the learner reads a conversation on a phone and then on a laptop
-- **THEN** both devices converge on the maximum `through_hlc` once both read facts have synced
-
 ### Requirement: The system SHALL provide the in-app notification inbox as a derived view in every region, never as a side effect [COM-17]
 
 The system SHALL provide the in-app notification inbox as a derived view in
 every region, never as a side effect. `inbox-updater` writes one item per
-(recipient, trigger) for replies to the reader's posts and immediate-mode
-subscriptions, announcements, messages and moderation outcomes on the
-reader's posts, all derived directly from facts. Non-monotone kinds
-(at-risk, completion, reminders) enter the inbox only through the `inapp#`
-ledger items the home-region emitter writes after an intent fires; every
-region's `inbox-updater` folds those items from the `facts` stream, so the
-in-app view shows exactly what was decided, once, everywhere. Inbox items
-older than 180 days are removed by TTL as housekeeping; the facts remain and
-the TTL is never a freshness signal.
+(recipient, trigger) for replies, immediate-mode subscriptions, announcements,
+messages and moderation outcomes, all derived directly from facts. Non-monotone
+kinds (at-risk, completion, reminders) enter the inbox only through the `inapp#`
+ledger items the home-region emitter writes after an intent fires, folded from
+the `facts` stream by every region's `inbox-updater`, so the view shows exactly
+what was decided, once, everywhere. Items older than 180 days are removed by TTL
+as housekeeping; the facts remain and the TTL is never a freshness signal.
 
 #### Scenario: Offline reader
 - **WHEN** a learner opens the app offline
@@ -400,23 +338,19 @@ the TTL is never a freshness signal.
 
 ### Requirement: The system SHALL deliver email through SES and web push through VAPID from the home region, record delivery outcomes as facts, and queue rather than drop under provider limits [COM-18]
 
-The system SHALL deliver email through SES and web push through VAPID from
-the home region, record delivery outcomes as facts, and queue rather than
-drop under provider limits. A device appends `push.sub.v1` in its `_profile`
-stream (one per device; a newer one supersedes, `active = false`
-withdraws). `notify-sender` signs pushes with the tenant's VAPID key pair
-(Secrets Manager, replicated within the zone) and sends email through an
-SES configuration set whose EventBridge destination delivers bounce,
-complaint and delivery events to `delivery-recorder`, which appends
-`notify.delivery.v1` under the recipient; a push `404` or `410` appends
-`outcome: gone`. A hard bounce, complaint or gone suppresses that address or
-subscription in the derived suppression item wherever the fact replicates.
-SES quota and rate are an account cap, not a domain invariant: on
-throttling the outbox item stays `claimed`, the SQS message backs off, the
-in-app item notes "email delayed", nothing is dropped, and `outbox-sweeper`
-re-drives `claimed` items older than 10 minutes. Push payloads carry a
-title, a kind and a deep link only; hidden or anonymous content is never
-pushed.
+The system SHALL deliver email through SES and web push through VAPID from the
+home region, record delivery outcomes as facts, and queue rather than drop under
+provider limits. A device appends `push.sub.v1` in its `_profile` stream (a
+newer one supersedes; `active = false` withdraws); `notify-sender` signs pushes
+with the tenant's VAPID key pair (Secrets Manager, replicated within the zone)
+and sends email through an SES configuration set whose EventBridge destination
+delivers bounce, complaint and delivery events to `delivery-recorder`, which
+appends `notify.delivery.v1` under the recipient (a push `404` or `410` appends
+`outcome: gone`), and a hard bounce, complaint or gone suppresses that address
+or subscription wherever the fact replicates. SES quota and rate are an account
+cap, not a domain invariant: on throttling the outbox item stays `claimed`, the
+SQS message backs off, the in-app item notes "email delayed", nothing is
+dropped, and `outbox-sweeper` re-drives `claimed` items older than 10 minutes.
 
 #### Scenario: Hard bounce
 - **WHEN** SES reports a permanent bounce for a learner's address
@@ -431,20 +365,15 @@ pushed.
 The system SHALL maintain a bounded, vector-stamped trigram search index per
 (forum, cohort) in the regional derived table. `thread-updater` appends each
 folded post's trigrams to the open index segment (one item per 200 posts,
-trigram → bitmap over the segment's posts, ~140 KB); the index header
-carries the view's `vector_digest`. Bounds: ≤ 64 segments (about 12,800 most
-recent posts, ≤ 9 MB) per view; older segments are evicted and older posts
-are searchable only through the S3 export with Athena (ADR-016). A query
-ANDs the bitmaps of its trigrams across segments in Lambda, verifies
-candidates against node text, and passes results through the same visibility
-projection as the thread view (Q&A hiding, held posts, anonymity); a
-cross-forum search fans out to the reader's (forum, cohort) indexes, at most
-50. Offline, the client searches its cached thread pages.
+trigram → bitmap, ~140 KB) and the index header carries the view's
+`vector_digest`; the index holds ≤ 64 segments (about 12,800 most recent
+posts, ≤ 9 MB), older segments are evicted, and older posts are searchable
+only through the S3 export with Athena (ADR-016). A query ANDs the bitmaps of
+its trigrams in Lambda, verifies candidates against node text, and passes
+results through the thread view's visibility projection (Q&A hiding, held
+posts, anonymity); a cross-forum search fans out to at most 50 of the reader's
+indexes, and offline the client searches its cached thread pages.
 
 #### Scenario: Match only in hidden answers
 - **WHEN** a learner searches for a term that appears only in Q&A answers they may not yet see
 - **THEN** the result lists the thread with "matches in hidden answers" and no snippet
-
-#### Scenario: Index write retried
-- **WHEN** a segment write fails after the node write in the same batch and the batch is redelivered
-- **THEN** the re-append is idempotent by `fact_id` position and the index header's `vector_digest` equals the view's after the retry
