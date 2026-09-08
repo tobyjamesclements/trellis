@@ -286,3 +286,42 @@ region-local state and the replicated key registry.
 #### Scenario: One region down
 - **WHEN** region A is unavailable
 - **THEN** OIDC and magic-link logins succeed in region B for every tenant, and refresh succeeds for every session including those issued in A
+
+### Requirement: The system SHALL assign every tenant an identity mode of consumer, soft or strict and apply the mode's ownership rules to every identity operation [IDE-19]
+
+The system SHALL assign every tenant an identity mode of consumer, soft or strict and apply the mode's ownership rules to every identity operation.
+`tenant.v1.identity_mode` is set at provisioning and is immutable; changing
+it means a new tenant and a migration workflow. `consumer`: exactly one
+tenant per residency zone, operated by Trellis, mints personal identities.
+`soft`: the tenant never mints an identity; principals are federated
+aliases of realm identities (IDE-21). `strict`: the tenant mints every
+identity (IDE-22) and none is accepted outside it. Identity operations
+(create, invite, suspend, reset, erase, change email) are permitted only
+to the owner defined by the mode.
+
+#### Scenario: Soft organisation admin tries to create a user
+- **WHEN** an admin of a soft organisation calls the user-creation API
+- **THEN** the request is refused with `409 identity_mode_soft` and a link to the invitation flow
+
+#### Scenario: Strict identity presented to the consumer realm
+- **WHEN** a strict organisation's user tries to sign in to the consumer realm with that identity
+- **THEN** the realm refuses the issuer and offers personal sign-up
+
+### Requirement: The system SHALL give strict organisations full ownership of their identities' lifecycle: creation, suspension, deprovisioning and erasure [IDE-22]
+
+The system SHALL give strict organisations full ownership of their identities' lifecycle: creation, suspension, deprovisioning and erasure.
+Identities are created by the admin console, SCIM 2.0 (DIO-20), OneRoster
+(DIO-01, DIO-02) or just-in-time from the organisation's IdP, with the
+issuer `strict:<tenant>` or the IdP issuer and deterministic ids (IDE-01).
+States: `active`, `suspended` (sessions revoked by `session.revoke.v1`,
+login refused), `deprovisioned` (enrolments ended, portability offered per
+IDE-24, retention clock started per ADM-14). Such identities are never
+accepted by the consumer realm or by any other tenant.
+
+#### Scenario: SCIM deactivation
+- **WHEN** the organisation's IdP sets a user `active = false` through SCIM
+- **THEN** a `session.revoke.v1` and a status fact are appended, sign-in is refused in every region within replication lag, and enrolments are unchanged until deprovisioning
+
+#### Scenario: Deprovisioning
+- **WHEN** an admin deprovisions a user
+- **THEN** every enrolment ends with `unenrol.v1 {reason: deprovisioned}`, the person receives the portability offer by email if policy allows, and the retention policy governs erasure

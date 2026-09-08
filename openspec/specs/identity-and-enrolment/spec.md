@@ -5,7 +5,9 @@ Capability ID prefix: **IDE**
 ## Purpose
 
 Who a principal is, how they prove it, what they are enrolled in, and what
-their roles allow. Identity uniqueness is delegated to external identity
+their roles allow, across three tenant identity modes: the consumer realm
+(personal identities), soft organisations (members bring their own
+identities) and strict organisations (the business creates every identity). Identity uniqueness is delegated to external identity
 providers and to DNS; Trellis mints principals per region without global
 coordination and merges duplicates after the fact. Enrolment is a set of
 facts; caps are advisory and reconciled by a workflow that apologises
@@ -25,6 +27,12 @@ region-local derived state and is therefore eventually consistent.
 - **Enrolment and roles** are facts; memberships and effective roles are
   region-owned derived indexes. Caps, seat limits, and cohort bounds are
   reconciled, never enforced.
+- **Identity ownership** follows the tenant's identity mode (ADR-026). The
+  consumer realm mints and owns personal identities and acts as an OpenID
+  Provider; a soft organisation holds only federated aliases of realm
+  identities; a strict organisation mints and owns identities that exist
+  nowhere else. Ownership decides who may create, suspend, reset or erase an
+  identity; it never affects how facts about a subject are stored.
 
 ## Domain model
 
@@ -42,6 +50,10 @@ Cohort           cohort.v1  { course, cohort, op: create|cap|split|merge|close, 
 Reconciliation   sys.reconcile.v1 { cohort, subject, decision: waitlist|promote|confirm, position?, reason }
 Merge            merge.v1   { survivor: usr, alias: usr, evidence: [claim fact_ids] }
 Built-in roles   learner, instructor, tutor, designer, observer, admin, operator, guest
+Identity mode    tenant.v1.identity_mode ∈ { consumer, soft, strict }   (ADR-026)
+Realm OP         issuer = https://learn.<zone-host>/oidc ; pairwise sub per organisation
+Org principal    usr_ + hash(realm issuer ‖ pairwise sub)   -- deterministic (IDE-01)
+Invitation       inv_<ULID> { org, roles, expires, uses }    -- derived item, TTL
 ```
 
 New fact types introduced here beyond the registry: none (all listed in
@@ -334,6 +346,122 @@ region-local state and the replicated key registry.
 - **WHEN** region A is unavailable
 - **THEN** OIDC and magic-link logins succeed in region B for every tenant, and refresh succeeds for every session including those issued in A
 
+
+### Requirement: The system SHALL assign every tenant an identity mode of consumer, soft or strict and apply the mode's ownership rules to every identity operation [IDE-19]
+
+The system SHALL assign every tenant an identity mode of consumer, soft or strict and apply the mode's ownership rules to every identity operation.
+`tenant.v1.identity_mode` is set at provisioning and is immutable; changing
+it means a new tenant and a migration workflow. `consumer`: exactly one
+tenant per residency zone, operated by Trellis, mints personal identities.
+`soft`: the tenant never mints an identity; principals are federated
+aliases of realm identities (IDE-21). `strict`: the tenant mints every
+identity (IDE-22) and none is accepted outside it. Identity operations
+(create, invite, suspend, reset, erase, change email) are permitted only
+to the owner defined by the mode.
+
+#### Scenario: Soft organisation admin tries to create a user
+- **WHEN** an admin of a soft organisation calls the user-creation API
+- **THEN** the request is refused with `409 identity_mode_soft` and a link to the invitation flow
+
+#### Scenario: Strict identity presented to the consumer realm
+- **WHEN** a strict organisation's user tries to sign in to the consumer realm with that identity
+- **THEN** the realm refuses the issuer and offers personal sign-up
+
+### Requirement: The system SHALL operate the consumer realm as an OpenID Provider for soft organisations with pairwise subjects and explicit consent [IDE-20]
+
+The system SHALL operate the consumer realm as an OpenID Provider for soft organisations with pairwise subjects and explicit consent.
+The realm exposes discovery, `authorize` (authorization code with PKCE),
+`token`, `userinfo` and `jwks` endpoints in every region; `id_token`s are
+signed with the zone keys (IDE-03). The `sub` is pairwise per organisation
+(`HMAC(realm_pairwise_key, org_tenant ‖ principal)`) so organisations cannot
+correlate a person across organisations. A consent screen lists the claims
+released (pairwise sub, display name, email only if the person agrees).
+Upstream sign-in to the realm is magic link, social OIDC, or institutional
+OIDC; the realm never stores passwords.
+
+#### Scenario: Joining through a link
+- **WHEN** a consumer opens an organisation's join link
+- **THEN** the realm authenticates them, shows the consent screen naming the organisation and the claims, and redirects with a code the organisation exchanges for an `id_token`
+
+#### Scenario: Two organisations compare subjects
+- **WHEN** the same consumer has joined two soft organisations
+- **THEN** the two organisations hold different `sub` values and different principal ids
+
+### Requirement: The system SHALL admit members to a soft organisation only through their consumer-realm identity and let the organisation manage membership and roles but never the identity [IDE-21]
+
+The system SHALL admit members to a soft organisation only through their consumer-realm identity and let the organisation manage membership and roles but never the identity.
+Membership starts by invitation link, code or admin invite by email, all
+of which resolve through the realm OP (IDE-20); the organisation appends
+`identity.v1` (issuer = realm, pairwise sub), `enrol.v1` and `role.v1`. The
+organisation can end membership (`unenrol.v1`, `role.v1 {revoke}`) and can
+read only consented claims; it cannot suspend, delete, reset or rename the
+identity. Realm profile changes reach the organisation at the member's next
+sign-in as `profile.v1` facts written by the region system device.
+
+#### Scenario: Member leaves
+- **WHEN** a member chooses "leave organisation" in the realm
+- **THEN** the organisation folds an `unenrol.v1` for every course and a `role.v1 {revoke}` for every role, the member's facts remain with the organisation, and the portability options of IDE-24 are offered
+
+#### Scenario: Organisation attempts to change a member's email
+- **WHEN** a soft organisation admin edits a member's email
+- **THEN** the request is refused with `409 identity_owned_by_realm`
+
+### Requirement: The system SHALL give strict organisations full ownership of their identities' lifecycle: creation, suspension, deprovisioning and erasure [IDE-22]
+
+The system SHALL give strict organisations full ownership of their identities' lifecycle: creation, suspension, deprovisioning and erasure.
+Identities are created by the admin console, SCIM 2.0 (DIO-20), OneRoster
+(DIO-01, DIO-02) or just-in-time from the organisation's IdP, with the
+issuer `strict:<tenant>` or the IdP issuer and deterministic ids (IDE-01).
+States: `active`, `suspended` (sessions revoked by `session.revoke.v1`,
+login refused), `deprovisioned` (enrolments ended, portability offered per
+IDE-24, retention clock started per ADM-14). Such identities are never
+accepted by the consumer realm or by any other tenant.
+
+#### Scenario: SCIM deactivation
+- **WHEN** the organisation's IdP sets a user `active = false` through SCIM
+- **THEN** a `session.revoke.v1` and a status fact are appended, sign-in is refused in every region within replication lag, and enrolments are unchanged until deprovisioning
+
+#### Scenario: Deprovisioning
+- **WHEN** an admin deprovisions a user
+- **THEN** every enrolment ends with `unenrol.v1 {reason: deprovisioned}`, the person receives the portability offer by email if policy allows, and the retention policy governs erasure
+
+### Requirement: The system SHALL let a strict organisation admit consumer-realm identities as external guests only under an explicit policy with limited roles [IDE-23]
+
+The system SHALL let a strict organisation admit consumer-realm identities as external guests only under an explicit policy with limited roles.
+`tenant.v1.external_guests ∈ { deny, allow(roles ⊆ {observer, tutor,
+designer}) }`, default `deny`. A guest is linked exactly as a soft member
+(IDE-21), is listed separately in the directory, is excluded from SCIM and
+OneRoster exports, and can be removed by the organisation at any time.
+
+#### Scenario: External examiner
+- **WHEN** a strict organisation with `allow(tutor)` invites an examiner by email
+- **THEN** the examiner signs in through the realm, receives the tutor role in the named cohorts only, and appears under "guests" in the directory
+
+#### Scenario: Policy deny
+- **WHEN** the policy is `deny` and an invite is attempted
+- **THEN** the invite is refused with `409 external_guests_denied`
+
+### Requirement: The system SHALL offer identity and credential portability when a person leaves any organisation [IDE-24]
+
+The system SHALL offer identity and credential portability when a person leaves any organisation.
+On leaving a soft organisation or being deprovisioned from a strict one,
+the person can transfer credentials issued to them into their consumer-
+realm backpack (CRD-16) and request a subject-scoped export of their own
+learning facts (FLS-20) delivered to the realm. Tenant policy
+`portability` defaults to `credentials_always, data_on_request`; a strict
+organisation may disable the learning-data export for its users but not the
+credential transfer, because credentials are issued to the person. A strict
+organisation without a linked realm identity issues a signed, single-use
+portability token to the person's verified external email.
+
+#### Scenario: Credential transfer after deprovisioning
+- **WHEN** a deprovisioned user opens the portability token in the realm
+- **THEN** the realm links the strict principal to their realm identity for transfer only, copies credential pointers into the backpack, and the strict organisation's directory shows "credentials transferred"
+
+#### Scenario: Data export disabled
+- **WHEN** the strict organisation's policy disables learning-data export
+- **THEN** the portability page offers credentials only and states the reason
+
 ---
 
 ## DynamoDB access patterns
@@ -361,6 +489,10 @@ region-local state and the replicated key registry.
 | Magic-link use | `T#t#ML` | `<jti>` | small | Conditional put, TTL 15 min |
 | Directory | `T#t#DIR` | `N#<prefix2>#<name>#<usr>` / `E#<prefix2>#<usr>` | small | Query prefix |
 | Cap state | `T#t#CAP#<cohort>` | `HDR` | small | Workflow state and last run vector |
+| Realm organisation links | `T#realm#LINKS#<usr>` | `O#<org_tenant>` | small | Consumer's organisations for the account dashboard and leave flow |
+| Invitations | `T#t#INV` | `<inv_id>` | small | TTL; uses counter by region-local CAS |
+| Realm OP codes | `T#realm#OIDC` | `C#<code_hash>` | small | Conditional put; TTL 5 min |
+| Identity status (strict) | `T#t#IDS#<usr>` | `HDR` | small | active / suspended / deprovisioned; write-through from SCIM (DIO-20) |
 
 **Item collection sizing.** `M#<cohort>` holds ≤ 2,000 member items plus a
 count (≈ 200 KB). `E#<usr>` ≤ ~50 items. `DIR` per tenant: 1M learners ×
@@ -388,6 +520,8 @@ even at 1M learners.
 | `cap-reconcile` | Step Functions Standard (home region) on `cap.exceeded` and hourly | Java 21, 512 MB | — | — | Task-token wait ≤ 24 h |
 | `cohort-sync` | EventBridge Scheduler hourly (home region) | Java 21, 512 MB | — | — | Idempotent enrolment facts |
 | `directory-api` | HTTP API `/directory` | Java 21 SnapStart, 512 MB | 15 ms | 300 / 700 ms | Prefix query |
+| `realm-oidc-provider` | HTTP API `/oidc/{authorize,token,userinfo,jwks}` on the realm host | Java 21 SnapStart, 1024 MB | 40 ms | 350 / 800 ms | Pairwise sub; consent; code single-use per region (Tension 5) |
+| `org-membership` | HTTP API `/orgs/{join,leave,invite,guests}` | Java 21 SnapStart, 512 MB | 25 ms | 300 / 700 ms | Appends identity/enrol/role facts; portability offers |
 
 ## Propagation path
 
@@ -415,7 +549,9 @@ even at 1M learners.
 
 | Standard | Role | Target | In scope | Out of scope / why | EC conflict and resolution |
 |---|---|---|---|---|---|
-| OpenID Connect Core 1.0 | Relying party | Full RP (code + PKCE) | Institutional IdPs, Cognito bridge | OP role (Trellis as IdP) except for LTI platform launches (LTI-01) | None; state/nonce single-use is region-local (Tension 5) |
+| OpenID Connect Core 1.0 | Relying party | Full RP (code + PKCE) | Institutional IdPs, Cognito bridge, upstream sign-in to the consumer realm | — | None; state/nonce single-use is region-local (Tension 5) |
+| OpenID Connect Core 1.0 | OpenID Provider (consumer realm) | Basic OP profile with PKCE, pairwise subject identifiers | Federation to soft organisations and external guests (IDE-20, IDE-23) | General-purpose OP for third parties (no product need; LTI platform launches use the same machinery) | Authorization codes are single-use per region; callbacks routed to the issuing region |
+| SCIM 2.0 (RFC 7643, RFC 7644) | Service provider for strict organisations | Core schema, Users and Groups, filter, PATCH | Provisioning, deactivation, groups → tenant cohorts (DIO-20, IDE-22) | Bulk operations initially | Write-through to the regional identity index gives read-your-writes for the provisioning client |
 | SAML 2.0 | Service provider via Cognito | Web Browser SSO through Cognito federation | Institutional SAML IdPs | Native SAML SP on Lambda: signature/XML handling risk not worth it initially | Cognito is single-region → SAML login unavailable during home-region outage (IDE-02) |
 | 1EdTech Security Framework 1.1 | Client and server for LTI services | Client-credentials with JWT client assertion, JWKS rotation | Used by LTI and OB3 API | — | JWKS lists all active keys; rotation overlap ≥ replication lag + cache TTL (IDE-03) |
 | OneRoster 1.2 users/enrollments | Consumer | Rostering pull, CSV | Inbound as `enrol.v1`/`identity.v1` (DIO-02) | — | Duplicate principals possible when SIS and OIDC race; IDE-11 merges |
@@ -469,3 +605,23 @@ even at 1M learners.
    identity index treating both as the same issuer (doubles IdP-side
    configuration; recommended for tenants that require it); (c) native
    SAML SP later. Recommendation: (a) by default, (b) on request.
+7. **Soft organisations cannot manage identities.** When a member loses
+   access, the organisation cannot help; recovery is the realm's magic-link
+   flow. Symptom: support tickets arrive at the wrong desk. Options: (a) let
+   organisations trigger a realm recovery email for a member (recommended:
+   it sends the realm's own flow, reveals nothing); (b) let organisations
+   hold a recovery secret (rejected: that is ownership). Recommendation:
+   (a), with the boundary stated in the organisation's admin console.
+8. **Strict ownership versus the person's record.** A business owns the
+   identity and may disable data export, but credentials are the person's.
+   Symptom: a former employee cannot see the coursework they did but keeps
+   the badges. Options: (a) as specified (credentials always, data on
+   request by policy); (b) always export data (rejected: some businesses
+   cannot allow it); (c) never (rejected: credentials are issued to people).
+   Recommendation: (a).
+9. **Pairwise subjects mean one person is several principals.** By design,
+   a person in three organisations has three principals and three rows in
+   three tenants; nothing merges them. Symptom: "my dashboard in org A
+   doesn't show my org B progress." The realm's dashboard aggregates only
+   what the person transfers (credentials) or exports. Recommendation:
+   accept; it is the privacy property soft organisations are promised.

@@ -10,7 +10,7 @@ Goals: correct idempotent ingest under retries and region switches; HWM
 semantics exactly as FLS-09; sync round trip p50 < 150 ms warm; device SDK
 that never loses a fact once written locally.
 
-Non-goals: views (007), anti-entropy (007), CBOR content negotiation
+Non-goals: views (008), anti-entropy (008), CBOR content negotiation
 (JSON first; CBOR later change), signed facts (device signatures deferred).
 
 ## Decisions
@@ -55,7 +55,7 @@ Non-goals: views (007), anti-entropy (007), CBOR content negotiation
 - **Export.** DynamoDB export to S3 (full monthly; incremental where the
   account supports it) → Step Functions Express → Lambda transform to
   Parquet by `tenant/scope/month`; manifest with per-partition vector
-  summaries read from headers (available after 007; until then the
+  summaries read from headers (available after 008; until then the
   manifest carries fact counts only).
 
 ## Risks / Trade-offs

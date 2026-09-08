@@ -13,6 +13,7 @@ encrypted under the tenant key; `S` = system, tenant key).
 | `void.v1` | FLS | any | same as target | self / role over subject | P | Retraction of target fact |
 | `sys.abandon.v1` | FLS | any | same as stream | region system device | S | Stream abandoned at seq |
 | `export.v1` | FLS | T | `_admin` | admin | S | Export manifest reference |
+| `am.change.v1` | FLS (used by CAC, ACT) | C, L or G | `_doc#<id>`, `_draft#<activity>`, group workspace | editor / self / group member | per subject | One Automerge change: actor = writer device, seq = stream seq, deps in refs, binary body (ADR-023) |
 | `profile.v1` | IDE | L | `_profile` | self / admin | P | Profile field set (LWW by HLC per field) |
 | `identity.v1` | IDE | L | `_profile` | region system device | P | Federated identity claim (issuer, sub, email hash) |
 | `merge.v1` | IDE | L | `_profile` | admin / self via proof | P | Account merge: this principal is an alias of another |
@@ -64,6 +65,7 @@ encrypted under the tenant key; `S` = system, tenant key).
 | `ext.result.v1` | DIO | L | module | SIS | P | External result received (OneRoster) |
 | `caliper.in.v1` | DIO | L | module or `_admin` | tool sensor | P | Inbound Caliper envelope |
 | `sis.v1` | DIO | L / C | `_enrol` / `_struct` | SIS import | P/T | Raw OneRoster record snapshot with sourcedId |
+| `scim.v1` | DIO | L / G | `_enrol` | SCIM client via region system device | P | Raw SCIM User or Group resource snapshot with externalId (strict organisations) |
 | `cc.import.v1` | DIO | C | `_struct` | editor | T | Common Cartridge import manifest |
 | `webhook.v1` | DIO | T | `_admin` | admin | S | Webhook subscription (url, secret ref, event kinds, status) |
 | `align.v1` | CRD | C | `_struct` | editor | T | Item/activity ↔ CASE CFItem alignment |

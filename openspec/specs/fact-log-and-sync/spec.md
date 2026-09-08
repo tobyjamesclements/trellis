@@ -431,6 +431,27 @@ unless the tenant admin requests a decrypted export (ADM-13).
 - **WHEN** a tenant admin requests a decrypted export for one course
 - **THEN** the workflow filters by scope, decrypts with the tenant's keys, writes Parquet to the tenant's export prefix, and records an `export.v1` fact naming the manifest
 
+### Requirement: The system SHALL store Automerge changes as facts for collaborative document scopes, with actor, sequence and dependencies aligned to the stream model [FLS-21]
+
+The system SHALL store Automerge changes as facts for collaborative document scopes, with actor, sequence and dependencies aligned to the stream model.
+A collaborative document (ADR-023) is a scope `_doc#<doc_id>` (course
+content), `_draft#<activity>` (a learner's draft) or a group workspace.
+Each Automerge change is one `am.change.v1` fact: the Automerge actor id is
+the writer device, the Automerge per-actor `seq` is the stream `seq`, the
+change's dependency hashes are carried in `refs`, and the body is the binary
+change. The materialised document is derived state (region-owned,
+recomputable from the changes in any order); compacted snapshots are cached
+as content-addressed blobs keyed by the document heads and are never
+authority.
+
+#### Scenario: Two devices edit one page offline
+- **WHEN** two editors' devices each append changes to the same `_doc#` scope while offline and sync to different regions
+- **THEN** every region folds both streams and materialises the same document, with concurrent edits to the same text merged and concurrent values of the same map key preserved for display
+
+#### Scenario: Snapshot cache miss
+- **WHEN** the structure updater cannot find a snapshot blob for the document's current heads
+- **THEN** it materialises the document from all `am.change.v1` facts in the scope and writes a new snapshot blob keyed by the heads
+
 ---
 
 ## DynamoDB access patterns
@@ -489,7 +510,7 @@ partition receives one write per view-updater batch, not per fact.
 | `ingest-drain` | SQS standard (throttle overflow) | Java 21, 512 MB | 20 ms/msg | 400 / 900 ms | Batch 10, retries with jitter |
 | `stream-router` | DynamoDB Streams, batch 100, window 1 s, parallelization 4, filter `SK begins_with F#` | Java 21, 512 MB | 60 ms/batch | 400 / 900 ms | Two SQS FIFO sends per fact, batched |
 | `roster-updater` | SQS FIFO, group `(subject, scope)`, batch 10 | Java 21, 512 MB | 25 ms/batch | 400 / 900 ms | CAS on roster version |
-| `anti-entropy` | EventBridge Scheduler, hourly per active partition, plus on-demand | Rust `provided.al2023`, 256 MB | 80 ms | 20 / 60 ms | Cross-region reads via peer endpoint |
+| `anti-entropy` | EventBridge Scheduler, hourly per active partition, plus on-demand | Java 21 SnapStart, 512 MB | 100 ms | 400 / 900 ms | Cross-region reads via peer endpoint |
 | `fact-export` | Step Functions Express (monthly / on demand) | Java 21, 2048 MB | — | — | DynamoDB export → Parquet |
 
 Cold starts on `sync-api` are visible to learners only as sync latency; the

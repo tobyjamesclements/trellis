@@ -27,7 +27,7 @@ Three consistency classes meet in this capability and must not be confused.
    learner does is rejected for lateness, duplication, over-capacity or
    staleness (project.md §2 principle 1, ADR-008, ADR-009).
 2. **Device-derived state.** The device derives its own marks, feedback,
-   completion, availability and calendar from its replica with the WASM
+   completion, availability and calendar from its replica with the TypeScript
    engine (DRV-02). This state is recomputable and labelled as
    device-computed (MVA-10). Its only synchronous server dependency is the
    time-locked key release (ACT-05).
@@ -104,7 +104,7 @@ KeyRelease    per (item, cohort): {release_hlc, key_version, key_hash}
 IndexedDB   facts (own + pulled, by stream and seq) · vectors · bundles (content-addressed, LRU) · keys (released, by key_version) · drafts (per item, unsent) · profile
 Worker      app shell and bundle cache · background sync · push handler (COM)
 Sync agent  push in seq order, pull by vector, apply roster advice (FLS-08, FLS-09), blob upload (FLS-12)
-Engine      WASM build of the derivation engine (DRV-02); marks, availability, completion, calendar
+Engine      TypeScript derivation engine in a Web Worker (DRV-02); marks, availability, completion, calendar
 ```
 
 ## Requirements
@@ -181,9 +181,9 @@ HWM.
 - **WHEN** the third batch fails because Route 53 has moved the tenant hostname to the peer region
 - **THEN** the agent retries the same batch against the new region and receives `duplicate` for facts the first region had already replicated and `accepted` for the rest (FLS-18)
 
-### Requirement: The system SHALL mark responses on the device with the WASM derivation engine and show immediate feedback subject to the item's key-visibility policy, recording the device's mark only as advisory [ACT-04]
+### Requirement: The system SHALL mark responses on the device with the TypeScript derivation engine and show immediate feedback subject to the item's key-visibility policy, recording the device's mark only as advisory [ACT-04]
 
-The system SHALL mark responses on the device with the WASM derivation engine and show immediate feedback subject to the item's key-visibility policy, recording the device's mark only as advisory.
+The system SHALL mark responses on the device with the TypeScript derivation engine and show immediate feedback subject to the item's key-visibility policy, recording the device's mark only as advisory.
 On every saved response the runtime invokes the engine (DRV-02, DRV-04)
 with the item at its `key_version`, the response and the seed
 `(subject, item, attempt_n, key_version)` (DRV-03), and writes
@@ -562,6 +562,27 @@ ordering are locale-independent.
 - **WHEN** a learner changes the interface locale from `en-GB` to `ar`
 - **THEN** the shell re-renders right-to-left with Arabic strings and localised digits for display, and every derived score is byte-identical to before
 
+### Requirement: The system SHALL keep essay drafts and group submission workspaces as Automerge documents that merge across a learner's devices and between group members before submission [ACT-20]
+
+The system SHALL keep essay drafts and group submission workspaces as Automerge documents that merge across a learner's devices and between group members before submission.
+A draft for an extended-text or assignment activity is an Automerge
+document in scope `_draft#<activity>` under the learner (or the group
+subject for group work), whose changes sync as `am.change.v1` facts
+(FLS-21) so a draft started on a phone continues on a laptop and group
+members co-edit without conflicts. `attempt.submit.v1` references the
+document heads and a materialised blob of the submitted text, so marking
+(DRV, `mark.v1`) never needs Automerge. Drafts are visible only to their
+subject (and group members); instructors see drafts only if the activity
+policy `drafts_visible_to_markers` is set.
+
+#### Scenario: Draft across devices
+- **WHEN** a learner writes on a phone offline, then opens the same activity on a laptop after both have synced
+- **THEN** the laptop shows the merged draft and further edits on either device merge
+
+#### Scenario: Group submission
+- **WHEN** three group members edit the workspace concurrently and one submits
+- **THEN** the submission blob is the materialised document at the submitting device's heads, the fact is attributed to all members (ACT-10), and later edits remain in the workspace as a new draft
+
 ## DynamoDB access patterns
 
 ### `facts` (global table, one per residency zone)
@@ -600,14 +621,14 @@ No GSI: every read starts from a subject the caller already knows (self, a cohor
 
 | Function | Trigger | Runtime / memory | Warm | Cold p50 / p99 | Notes |
 |---|---|---|---|---|---|
-| (fold handlers) | Linked into `view-updater` (MVA-03) | Rust, in-process | +2 ms/fact | — | Fold ACT types into SlotRoster, MarkingQueue, PeerIndex, Calendar, KeyRelease alongside the LearnerRow |
-| `key-release` (owned by CAC-09; listed here as ACT-05's dependency) | HTTP API `GET /keys/release/{item}/{cohort}` | Rust, 256 MB | 8 ms | 20 / 60 ms | Session, IDE-09 membership, `KR#` GetItem (a per-(item, cohort) projection of CAC's DeliveryView); inline key or presigned GET |
+| (fold handlers) | Linked into `view-updater` (MVA-03) | Java, in-process | +3 ms/fact | — | Fold ACT types into SlotRoster, MarkingQueue, PeerIndex, Calendar, KeyRelease alongside the LearnerRow |
+| `key-release` (owned by CAC-09; listed here as ACT-05's dependency) | HTTP API `GET /keys/release/{item}/{cohort}` | Java 21 SnapStart, 512 MB | 12 ms | 300 / 700 ms | Session, IDE-09 membership, `KR#` GetItem (a per-(item, cohort) projection of CAC's DeliveryView); inline key or presigned GET |
 | `activity-api` | HTTP API `GET /activities/{module}/{activity}/{queue,slots,submissions}`, `POST /slots/{activity}/decide` | Java 21 SnapStart, 512 MB | 25 ms | 300 / 700 ms | Queue, roster, freshness block; decision callback sends the task token |
 | `calendar-api` | HTTP API `GET /calendar`, `GET /calendar/{token}.ics` | Java 21 SnapStart, 512 MB | 20 ms | 300 / 700 ms | Token verify; RFC 5545; `Cache-Control: max-age=3600` |
 | `slot-reconcile` | Step Functions Standard, started by `effect.ready {kind: slot_overcap}` in the home region | Java 21, 512 MB per task | 50 ms/task | 400 / 900 ms | Snapshot → Notify → Wait (task token, 24 h) → Resolve → Append facts → Apologise; ~12 transitions |
-| `peer-allocate` | EventBridge Scheduler (phase deadline + window, then hourly) or on demand | Rust, 512 MB | 0.3–2 s | 20 / 60 ms | Deterministic ring allocation; writes `allocation.v1` through the sync path as `dev_sys_<region>` |
-| `reminder-arm` | EventBridge Scheduler one-off per folded deadline; `view.updated` for releases | Rust, 512 MB | 50 ms | 20 / 60 ms | Reads queue entries; creates SideEffectIntents (MVA-08) |
-| Device (PWA) | Browser | WASM engine + service worker | ~50 ms instantiate | — | Marks per response (DRV-17); no server cost |
+| `peer-allocate` | EventBridge Scheduler (phase deadline + window, then hourly) or on demand | Java 21 SnapStart, 1024 MB | 0.5–3 s | 400 / 900 ms | Deterministic ring allocation; writes `allocation.v1` through the sync path as `dev_sys_<region>` |
+| `reminder-arm` | EventBridge Scheduler one-off per folded deadline; `view.updated` for releases | Java 21 SnapStart, 512 MB | 60 ms | 400 / 900 ms | Reads queue entries; creates SideEffectIntents (MVA-08) |
+| Device (PWA) | Browser | TypeScript engine in a Web Worker + service worker | ~30 ms worker start | — | Marks per response (DRV-17); no server cost |
 
 ## Propagation path
 

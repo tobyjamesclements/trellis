@@ -43,6 +43,9 @@ mark their own work locally, and sync when they can.
 | Tutor | Non-editing teacher: marks and views, cannot author | As instructor |
 | Course designer | Authors courses without teaching a cohort | Online |
 | Observer | Parent/mentor with read access to a learner's derived state | Online |
+| Consumer | A person with a personal identity in the consumer realm; learns directly, may join soft organisations, owns their credentials | Offline-capable PWA |
+| Creator | A consumer who authors and publishes courses in the consumer realm | Online |
+| Organisation admin | Runs a business tenant. In a **soft** organisation: manages membership and roles over members' own identities. In a **strict** organisation: owns and provisions every identity | Online |
 | Tenant admin | Manages a tenant: users, courses, integrations, policies | Online |
 | Platform operator | Runs the multi-tenant service | Online, with runbooks |
 | Guest | Unauthenticated access to explicitly open content | Online |
@@ -65,7 +68,7 @@ is a materialisation over facts rather than stored state.
 | Lesson (branching) | Partial via QTI 3.0 test branch rules | activities-and-assessment |
 | SCORM | Out of scope. SCORM runtime (1.2/2004 API, CMI model) is stateful and mutable; deliver SCORM packages through an external LTI player | — |
 | H5P | Out of scope natively; via LTI tool | lti-interop |
-| Wiki, Glossary, Database | Out of initial scope; collaborative documents are a CRDT problem deferred to a later change | — |
+| Wiki, Glossary, Database | Collaborative documents are Automerge documents (ADR-023); page and book bodies ship in the initial build, wiki and glossary activities follow as a later change on the same mechanism | course-authoring-and-content |
 | Forum (types, subscriptions, digests, ratings) | In scope; threads are derived views over post facts | communication-and-forums |
 | Messaging, notifications | In scope; all sends are gated side effects | communication-and-forums |
 | Gradebook (categories, aggregation, scales, letters, overrides, history) | In scope; entirely derived; overrides and history are facts | derivation-engine, materialised-views-and-analytics |
@@ -88,6 +91,23 @@ is a materialisation over facts rather than stored state.
 | Themes, filters | Minimal theming; content filters out of scope | course-authoring-and-content |
 | Plagiarism, proctoring, attendance | Out of scope natively; LTI tools where they exist | — |
 | xAPI / LRS | Out of initial scope; Caliper 1.2 is the analytics surface. An xAPI projection is a candidate later change | data-interop |
+
+### 1.5 Tenancy and identity modes
+
+Trellis is multi-tenant for **consumers** and for **businesses**.
+
+| Tenant kind | Who runs it | Identity | Hosting |
+|---|---|---|---|
+| **Consumer realm** (one per residency zone) | Trellis | Personal identities (magic link, social or institutional OIDC). The realm is also an OpenID Provider for the organisations below | `learn.<zone-host>` |
+| **Soft organisation** | A group of consumers (a tutor, a club, a study group that became a business) | Members bring their own consumer identities; the organisation federates with the consumer realm, manages membership and roles, and can never create, reset or read a member's identity | Self-service, wildcard subdomain |
+| **Strict organisation** | A business or institution | The organisation creates every user from scratch (admin, SCIM 2.0, OneRoster, or its own IdP), owns the account lifecycle, and users cannot use those identities outside the organisation | Contracted, custom hostname, SSO |
+
+A learner's *learning data* belongs to the tenant it was produced in; a
+learner's *identity* belongs to whoever minted it (the consumer in a soft
+organisation, the business in a strict one); a learner's *credentials* are
+issued to the person and are portable to their consumer-realm backpack in
+either mode. The identity model is specified in identity-and-enrolment
+(IDE-19 to IDE-24) and ADR-026.
 
 ---
 
@@ -124,6 +144,12 @@ These are ordered. When two conflict, the earlier one wins.
 10. **Standards at the edge, facts in the middle.** Inbound standard
     payloads become facts. Outbound standard payloads are projections of
     derived state, emitted from the tenant's home region.
+11. **Accessible by default.** WCAG 2.2 AA (with EN 301 549) is a release
+    gate for every user interface and a publish-time check for authored
+    content, not a later fix.
+12. **Secure by design, assessed against the NCSC Cyber Assessment
+    Framework.** Every technical contributing outcome of the CAF has an
+    owner in this tree and evidence the operating organisation can present.
 
 ---
 
@@ -137,15 +163,21 @@ These are ordered. When two conflict, the earlier one wins.
 | Propagation: EventBridge, DynamoDB Streams, SQS | Streams drive derivation; SQS FIFO serialises per partition; EventBridge carries domain events between capabilities. |
 | No RDS, ElastiCache, OpenSearch | Each is rejected in ADR-016 with a cost argument. Athena over S3 exports is permitted for ad-hoc analytics (ADR-016) because it is pay-per-query with no idle cost. |
 | Global Tables semantics honoured | LWW per item by arrival; no cross-region transactions or conditional writes; no global uniqueness. |
+| Backend language: Java 21 on Lambda | Every function is Java with SnapStart. The derivation engine is TypeScript and runs on the JVM under GraalJS so device and server execute one implementation (ADR-001). |
+| Client: TypeScript and React | Progressive web app, offline replica, one design system, accessibility gates (client-platform-and-accessibility). |
+| Collaborative documents: Automerge | Rich-text bodies, drafts and group submissions are Automerge documents whose changes are facts (ADR-023). The course tree keeps its purpose-built operation log because Automerge lists have no move operation. |
+| Security assurance: NCSC CAF | The security-and-assurance capability maps every contributing outcome; technical outcomes target "Achieved" (ADR-024). |
+| Accessibility: WCAG 2.2 AA, EN 301 549, PSBAR 2018 | Release gate with automated and manual testing (ADR-025). |
 
 ### 3.1 Stated assumptions (inline, so the design can proceed)
 
-- **A1. Implementation languages.** The repository carries a Maven
-  `.gitignore`, so service Lambdas are assumed to be Java 21 with SnapStart
-  enabled. The derivation engine is a single Rust crate compiled to WASM for
-  devices and to a native Lambda for the server, so client and server marking
-  are one implementation. ADR-001 records cold-start budgets and permits a
-  Rust implementation of any service function that misses its budget.
+- **A1. Implementation languages (decided).** Backend: Java 21 on Lambda
+  with SnapStart for every function. Client: TypeScript with React. The
+  derivation engine is written once in TypeScript, runs in a Web Worker on
+  the device and under GraalJS inside the Java Lambdas on the server, and is
+  gated by golden vectors across browser engines and GraalJS (ADR-001).
+  Automerge is used through its JavaScript package on the client and its
+  Java binding on the server (ADR-023).
 - **A2. Regions and residency zones.** Tenants belong to exactly one
   residency zone. A zone is two or three AWS regions replicated by one
   global table. Reference zones: `eu` = {eu-west-1, eu-central-1},
@@ -155,8 +187,9 @@ These are ordered. When two conflict, the earlier one wins.
   sub-cohorts automatically (ADR-019).
 - **A4. Fact size.** Average 1 KB, p99 4 KB. Bodies over 4 KB are stored in
   S3 and referenced by hash.
-- **A5. Client.** A progressive web app with an IndexedDB replica and a
-  service worker. Native wrappers are packaging, not architecture.
+- **A5. Client.** A TypeScript and React progressive web app with an
+  IndexedDB replica and a service worker. Native wrappers are packaging,
+  not architecture.
 - **A6. DynamoDB Streams and replication.** Writes replicated into a region
   by Global Tables appear in that region's stream. Change 001 includes a
   spike to verify this; the fallback is a cross-region EventBridge fan-out.
@@ -325,11 +358,11 @@ OneRoster CSV import, tenant provisioning, and home-region failover.
 
 | Property | Default |
 |---|---|
-| Runtime | Java 21, SnapStart on, for API and integration functions; Rust on `provided.al2023` for the derivation engine and the hot path (view updater, NM recompute, intent evaluator, partition recompute, anti-entropy, structure updater) |
-| Architecture | x86_64 for cost modelling; arm64 where SnapStart supports it (verify per runtime) |
+| Runtime | Java 21 with SnapStart for every function. Functions that derive (view updater, NM recompute, partition recompute, explain) embed the TypeScript engine under GraalJS; functions that materialise documents use the Automerge Java binding |
+| Architecture | x86_64 for cost modelling; arm64 where SnapStart and the Automerge native library support it (verify per function) |
 | Memory | 1024 MB sync/launch paths, 512 MB read paths, 1024 MB view updater |
 | Provisioned concurrency | None |
-| Cold start budget | Java+SnapStart p50 ≤ 400 ms, p99 ≤ 900 ms; Rust p99 ≤ 60 ms |
+| Cold start budget | p50 ≤ 400 ms, p99 ≤ 900 ms for API functions; p99 ≤ 1.5 s for engine-hosting functions (GraalJS context restored from the snapshot) |
 | Logging | Structured JSON, sampled at 10% for success paths, 100% for errors |
 
 ---
@@ -399,6 +432,8 @@ than the totals.
   one deviation from stock OpenSpec practice: because this is the initial
   build, the canonical specs are authored directly and the deltas are
   projections of them.
+- **Capability prefixes**: FLS, DRV, MVA, IDE, CAC, ACT, COM, LTI, DIO,
+  CRD, ADM, SEC (security-and-assurance), UIX (client-platform-and-accessibility).
 - **ADRs** live in `openspec/adr/` and are referenced as `ADR-nnn`.
 - **The trade-off register** is `openspec/tradeoffs.md`; the consolidated
   **Known Tensions** document is `openspec/known-tensions.md`; the
@@ -440,6 +475,12 @@ than the totals.
 | Apology workflow | The specified reconciliation and communication path for an invariant that was allowed to be violated. |
 | Epoch | A monotone counter on a tenant's interop endpoints; a change tells external consumers to do a full resync. |
 | L10k | The reference load profile in §6. |
+| Consumer realm | The Trellis-operated tenant per zone that holds personal identities and personal learning, and acts as OpenID Provider for soft organisations. |
+| Soft organisation | A business tenant whose members use their own consumer-realm identities; the organisation manages membership and roles only. |
+| Strict organisation | A business tenant that creates and owns every user identity; users cannot use those identities elsewhere. |
+| Identity mode | The tenant setting `soft` or `strict` (the consumer realm is `consumer`). |
+| Automerge document scope | A scope whose facts are Automerge changes and whose derived state is the materialised document. |
+| CAF | The NCSC Cyber Assessment Framework: four objectives, fourteen principles, 39 contributing outcomes, each assessed as Achieved, Partially achieved or Not achieved. |
 
 ---
 
@@ -466,8 +507,11 @@ openspec/
     data-interop/                  DIO  OneRoster, Caliper, Common Cartridge, Edu-API
     credentialing-and-competencies/ CRD CASE, Open Badges 3.0, CLR 2.0
     administration-and-tenancy/    ADM  tenants, zones, failover, retention, erasure, cost
+    security-and-assurance/        SEC  NCSC CAF controls and evidence (plus caf-mapping.md)
+    client-platform-and-accessibility/ UIX TypeScript/React client, offline runtime host, accessibility gates
   changes/
-    001-platform-foundation … 012-administration-and-compliance
+    README.md                      execution sequence and dependency graph
+    001-platform-foundation … 015-administration-and-compliance
   tools/gen-deltas.py              generates change delta specs from canonical specs
   tools/check-tree.py              structural and cross-reference checks
   tools/shall-body.py              keeps the SHALL statement on each requirement's first body line

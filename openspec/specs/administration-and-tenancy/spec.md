@@ -509,6 +509,45 @@ reading the item locally after replication (≈ $2.5/month at L10k).
 - **WHEN** every replicated write appears in B's stream within replication lag
 - **THEN** A6 is marked verified in project.md and the router design in FLS-17 stands
 
+### Requirement: The system SHALL provide tenant tiers, with self-service creation of soft organisations by consumers and operator provisioning of strict organisations [ADM-22]
+
+The system SHALL provide tenant tiers, with self-service creation of soft organisations by consumers and operator provisioning of strict organisations.
+Tiers: `consumer` (the realm, one per zone), `soft` (self-service), `strict`
+(contracted). Creating a soft organisation from the realm runs a lightweight
+provisioning path: a registry item under the zone's wildcard host, zone and
+home region inherited from the realm, default policies, no DNS, certificate
+or per-tenant metrics, and the creating consumer as the first admin; abuse
+controls limit creations per consumer and per day and require a verified
+email. Strict organisations use the operator workflow (ADM-01) and may have
+custom hostnames, SSO, SCIM and integrations. Per-tenant metrics and
+dashboards exist for strict tenants; soft tenants are observed in aggregate.
+
+#### Scenario: Consumer creates a study organisation
+- **WHEN** a verified consumer creates "Riverside Tutoring"
+- **THEN** within seconds `riverside-tutoring.orgs.<zone-host>` resolves, the consumer is its admin, and no per-tenant AWS resources were created
+
+#### Scenario: Creation abuse
+- **WHEN** a consumer exceeds the daily creation limit
+- **THEN** further creations are refused with `429` and the abuse-detection job (SEC-04) is notified
+
+### Requirement: The system SHALL host soft organisations and the consumer realm on shared wildcard hostnames and reserve custom hostnames for strict organisations [ADM-23]
+
+The system SHALL host soft organisations and the consumer realm on shared wildcard hostnames and reserve custom hostnames for strict organisations.
+The registry resolves `learn.<zone-host>` to the realm and
+`<slug>.orgs.<zone-host>` to soft organisations under one wildcard
+certificate per zone; slugs are minted deterministically from the chosen
+name plus a short hash so two regions creating the same slug converge, and
+a slug collision surfaces as a rename prompt rather than a failure. Strict
+organisations may map custom hostnames through ADM-01 with ACM certificates.
+
+#### Scenario: Slug collision
+- **WHEN** two consumers in different regions create organisations with the same display name within the replication window
+- **THEN** both registry items exist with distinct hashed slugs and each creator sees their own organisation's address
+
+#### Scenario: Custom hostname for a strict tenant
+- **WHEN** an operator provisions `learn.example.ac.uk` for a strict tenant
+- **THEN** ADM-01 issues the certificate and DNS records and the tenant is reachable on both the custom and the wildcard address
+
 ---
 
 ## DynamoDB access patterns
@@ -557,14 +596,14 @@ execution environment per minute; the `T#t#SEQ` counter takes one CAS per audit 
 | `admin-api` | HTTP API `/admin/*` | Java 21 SnapStart, 1024 MB | 30 ms | 300 / 700 ms | Writes facts via FLS ingest path; audit library in-process |
 | `tenant-provision` | Step Functions Standard tasks | Java 21 SnapStart, 1024 MB | 0.2–5 s | 300 / 700 ms | Route 53, ACM, KMS, S3, registry |
 | `failover-runner` | Step Functions (alarm or manual) | Java 21 SnapStart, 512 MB | 100 ms | 300 / 700 ms | Registry write, drain call, ledger read |
-| `config-fold` | EventBridge `fact.folded` (scope `_admin`, `_profile` types) | Rust, 256 MB | 5 ms | 20 / 60 ms | CFG, CN, RET, AU items |
+| `config-fold` | EventBridge `fact.folded` (scope `_admin`, `_profile` types) | Java 21 SnapStart, 512 MB | 8 ms | 400 / 900 ms | CFG, CN, RET, AU items |
 | `directory-indexer` | EventBridge `fact.folded` (identity/profile/enrol/role/struct) | Java 21, 512 MB | 10 ms | 400 / 900 ms | UD, CAT items |
-| `erasure-sweeper` | Step Functions Standard (24 h wait) | Rust, 512 MB | 0.5–3 s | 20 / 60 ms | DK deletes, blob deletes, verification |
-| `takedown-executor` | EventBridge `fact.folded` type `takedown.v1`; anti-entropy hook | Rust, 256 MB | 20 ms | 20 / 60 ms | Shred put, blob delete |
+| `erasure-sweeper` | Step Functions Standard (24 h wait) | Java 21 SnapStart, 1024 MB | 0.5–3 s | 400 / 900 ms | DK deletes, blob deletes, verification |
+| `takedown-executor` | EventBridge `fact.folded` type `takedown.v1`; anti-entropy hook | Java 21 SnapStart, 512 MB | 25 ms | 400 / 900 ms | Shred put, blob delete |
 | `export-authoriser` | Step Functions Standard (task token) | Java 21, 512 MB | — | 300 / 700 ms | Waits ≤ 72 h |
-| `restore-import` | Step Functions Distributed Map | Rust, 1024 MB | 2 ms/item | 20 / 60 ms | Conditional puts |
+| `restore-import` | Step Functions Distributed Map | Java 21, 1024 MB | 3 ms/item | 400 / 900 ms | Conditional puts |
 | `retention-scheduler` | EventBridge Scheduler daily | Java 21, 1024 MB | — | — | Emits erasure/takedown/void facts |
-| `status-page` | Scheduler 5 min + alarm events | Rust, 256 MB | 50 ms | 20 / 60 ms | Writes static page to S3 |
+| `status-page` | Scheduler 5 min + alarm events | Java 21 SnapStart, 512 MB | 60 ms | 400 / 900 ms | Writes static page to S3 |
 | `cost-rollup` / `budget-governor` | Scheduler monthly / alarm events | Java 21, 1024 MB | — | — | Athena over exports; sets throttle flags |
 
 ## Propagation path

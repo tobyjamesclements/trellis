@@ -42,8 +42,11 @@ defaults; WAF (optional, costed in ADM-15, decided later).
   both ways with RTC off (cost), lifecycle rules for `tmp/` uploads.
   CloudFront origin group per zone with failover on 403/404/5xx.
 - **Shared libraries.** Java: `trellis-core` (keys, HLC, CBOR, hashing,
-  crypto, registry cache, logging). Rust: `trellis-core-rs` with the same
-  test vectors; the two must agree on `fact_id` for the shared vector suite.
+  crypto, registry cache, logging). TypeScript: `@trellis/core` with the
+  same test vectors for the client; the two must agree on `fact_id` for the
+  shared vector suite. The engine bundle (`@trellis/engine`) is consumed by
+  the client build and embedded in engine-hosting Java functions with
+  GraalJS (ADR-001).
 - **Provisioning workflow.** Steps: validate hostname; write registry
   items; create Route 53 records; request ACM certificate (DNS validation);
   create tenant `tenant.v1` facts and default policies; generate signing
@@ -70,4 +73,4 @@ confirm DNS failover within 2 minutes.
 
 - arm64 SnapStart availability for Java 21 at build time.
 - Whether the registry needs a third replica region outside both zones for
-  operator-plane availability (cost: negligible; decide during 012).
+  operator-plane availability (cost: negligible; decide during 015).

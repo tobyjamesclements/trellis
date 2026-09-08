@@ -533,6 +533,29 @@ failure.
 - **WHEN** a Common Cartridge with 20,000 resulting facts is imported
 - **THEN** the workflow completes in about 40 s with no throttled writes and reports progress per 1,000 facts
 
+### Requirement: The system SHALL edit page, book, item and rubric text bodies as Automerge documents whose changes are facts and whose published form is a materialised blob [CAC-22]
+
+The system SHALL edit page, book, item and rubric text bodies as Automerge documents whose changes are facts and whose published form is a materialised blob.
+Each body is an Automerge document in scope `_doc#<doc_id>` under the
+course subject (FLS-21, ADR-023) with rich-text marks. Editors' devices
+append `am.change.v1` facts; `struct-updater` materialises documents with
+the Automerge Java binding, caches snapshots by heads, and exposes
+concurrent values on the same key as visible conflicts (CAC-13). At publish,
+`publish-prepare` renders the materialised document to sanitised HTML
+stored as a content-addressed blob in the bundle, so learners never need
+Automerge to read content. Reordering blocks inside a document uses list
+operations; a concurrent move of the same block by two editors is
+de-duplicated deterministically by block id at materialisation and noted in
+history.
+
+#### Scenario: Concurrent paragraph edits
+- **WHEN** two editors change different sentences of the same page offline
+- **THEN** after sync every region materialises a page containing both edits and the history shows both changes
+
+#### Scenario: Concurrent block move
+- **WHEN** two editors move the same block to different positions concurrently
+- **THEN** the materialised page contains the block once, at the position chosen by the deterministic rule, and history records the duplicate that was collapsed
+
 ---
 
 ## DynamoDB access patterns
@@ -582,14 +605,14 @@ CloudFront; deadline bursts never reach this capability's items.
 
 | Function | Trigger | Runtime / memory | Warm | Cold p50 / p99 | Notes |
 |---|---|---|---|---|---|
-| `struct-updater` | SQS FIFO `struct` (group = subject id), batch 10 | Rust `provided.al2023`, 512 MB | 5 ms/fact | 20 / 60 ms | LWW fold; CAS on `generation`; DL index; DeliveryView; emits events |
+| `struct-updater` | SQS FIFO `struct` (group = subject id), batch 10 | Java 21 SnapStart with the Automerge Java binding, 1024 MB | 8 ms/fact | 500 / 1,200 ms | LWW fold; Automerge materialisation for `_doc#` scopes (CAC-22); CAS on `generation`; DL index; DeliveryView; emits events |
 | `authoring-api` | HTTP API `GET /courses/*`, `/catalogue/*`, `/bank/*`, `/history/*` | Java 21 SnapStart, 1024 MB | 25 ms | 300 / 700 ms | Snapshot, history, conflict list; writes go through `sync-api` |
-| `publish-prepare` | HTTP API `POST /courses/{c}/publish/prepare` (≤ 1,000 nodes) else Step Functions Express | Rust, 2048 MB | 0.5–5 s | 20 / 60 ms | Snapshot at vector, key split, classification, time-lock encryption, index, a11y, manifests → S3 |
-| `delivery-api` | HTTP API `GET /courses/{c}/delivery` | Rust, 256 MB | 5 ms | 20 / 60 ms | DeliveryView with vector |
-| `key-release` | HTTP API `GET /keys/release/{item}/{cohort}` (ACT-05 is the runtime's contract for it) | Rust, 256 MB | 8 ms | 20 / 60 ms | Enrolment + reveal check; KMS Decrypt cached per (item, cohort) |
+| `publish-prepare` | HTTP API `POST /courses/{c}/publish/prepare` (≤ 1,000 nodes) else Step Functions Express | Java 21 SnapStart, 2048 MB | 0.5–5 s | 500 / 1,200 ms | Snapshot at vector, key split, classification, time-lock encryption, index, a11y, manifests → S3 |
+| `delivery-api` | HTTP API `GET /courses/{c}/delivery` | Java 21 SnapStart, 512 MB | 8 ms | 300 / 700 ms | DeliveryView with vector |
+| `key-release` | HTTP API `GET /keys/release/{item}/{cohort}` (ACT-05 is the runtime's contract for it) | Java 21 SnapStart, 512 MB | 12 ms | 300 / 700 ms | Enrolment + reveal check; KMS Decrypt cached per (item, cohort) |
 | `content-access` | HTTP API `POST /content/session` | Java 21 SnapStart, 512 MB | 10 ms | 300 / 700 ms | CloudFront signed cookie, tenant-scoped, 12 h |
 | `course-copy` | Step Functions Standard (copy, template, CC import hand-off) | Java 21, 1024 MB | 2 s / 1,000 facts | 400 / 900 ms | Paced ≤ 500 facts/s; durable seqs in state |
-| `catalogue-index` | EventBridge `catalogue.updated` → SQS delay 60 s | Rust, 512 MB | 100 ms | 20 / 60 ms | Tenant catalogue index blob |
+| `catalogue-index` | EventBridge `catalogue.updated` → SQS delay 60 s | Java 21 SnapStart, 512 MB | 120 ms | 400 / 900 ms | Tenant catalogue index blob |
 | `blob-sweep` | EventBridge Scheduler, quarterly | Java 21, 1024 MB | — | — | Unreferenced blobs vs FLS-20 export |
 
 ## Propagation path

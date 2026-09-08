@@ -17,7 +17,8 @@ Then read the specs in this order; each builds on the previous:
    `specs/activities-and-assessment/`, `specs/communication-and-forums/`.
 5. `specs/lti-interop/`, `specs/data-interop/` (plus `caliper-mapping.md`),
    `specs/credentialing-and-competencies/`.
-6. `specs/administration-and-tenancy/`.
+6. `specs/administration-and-tenancy/`, `specs/security-and-assurance/`
+   (plus `caf-mapping.md`), `specs/client-platform-and-accessibility/`.
 
 Cross-cutting documents:
 
@@ -29,7 +30,8 @@ Cross-cutting documents:
 - `standards-conformance.md` — the 1EdTech conformance matrix.
 - `cost-summary.md` — the roll-up of every capability's cost model.
 
-The initial build is decomposed into sequenced changes under `changes/`,
+The initial build is decomposed into fifteen sequenced changes under
+`changes/` (see `changes/README.md` for the order and dependency graph),
 each with `proposal.md`, `design.md`, `tasks.md`, and generated delta specs
 under `specs/`.
 

@@ -349,6 +349,33 @@ with `role: api_client`) with per-service scopes
 - **WHEN** a client with `roster.readonly` requests `results`
 - **THEN** the response is `403 insufficient_scope`
 
+### Requirement: The system SHALL provide a SCIM 2.0 service provider for strict organisations that turns provisioning calls into identity, profile and enrolment facts with read-your-writes for the provisioning client [DIO-20]
+
+The system SHALL provide a SCIM 2.0 service provider for strict organisations that turns provisioning calls into identity, profile and enrolment facts with read-your-writes for the provisioning client.
+Endpoints `/scim/v2/Users`, `/scim/v2/Groups`, `/ServiceProviderConfig`,
+`/Schemas` and `/ResourceTypes` implement the core schema (RFC 7643) and
+protocol (RFC 7644) with `filter`, `PATCH`, pagination and `externalId`.
+A User becomes a `scim.v1` snapshot fact plus `identity.v1` (issuer
+`scim:<tenant>`, deterministic principal id per IDE-01), `profile.v1` and,
+for `active = false`, the suspension facts of IDE-22; a Group becomes a
+tenant cohort (IDE-16) and its members enrolment facts. The API writes
+through to the serving region's identity and status index so an immediate
+GET returns what was just written; the indexer later confirms idempotently.
+Only tenants with `identity_mode = strict` expose SCIM; tokens carry the
+`scim.manage` scope (DIO-19).
+
+#### Scenario: IdP provisions a user
+- **WHEN** an identity provider POSTs a User with `externalId`
+- **THEN** the facts are appended, the response carries the SCIM `id` (the deterministic principal id), and a GET for that id in the same region succeeds immediately
+
+#### Scenario: Group membership drives cohorts
+- **WHEN** a Group's members are patched
+- **THEN** the tenant cohort's `enrol.v1`/`unenrol.v1` facts are appended and course enrolments follow through cohort sync (IDE-16)
+
+#### Scenario: SCIM on a soft organisation
+- **WHEN** a client calls SCIM on a tenant whose identity mode is `soft`
+- **THEN** the response is `404` with a problem document explaining that soft organisations do not own identities
+
 ---
 
 ## DynamoDB access patterns
@@ -394,7 +421,7 @@ the ceiling; shard by `fact_id` prefix if a tenant exceeds 500/s.
 | `oneroster-pull` | Step Functions Standard per connection (Scheduler) | Java 21, 1024 MB | — | — | Pages; appends facts |
 | `oneroster-csv-import` | Step Functions Distributed Map | Java 21, 2048 MB | — | — | Row validation; paced writes |
 | `oneroster-push` | SQS from `effect.ready` kind `or_result`, home region | Java 21, 512 MB | 120 ms | 400 / 900 ms | Ledger |
-| `caliper-projector` | EventBridge `fact.folded` and `view.updated` (stable) → SQS (batch 100, window 30 s) | Rust, 512 MB | 20 ms/batch | 20 / 60 ms | Builds envelopes; home region check |
+| `caliper-projector` | EventBridge `fact.folded` and `view.updated` (stable) → SQS (batch 100, window 30 s) | Java 21 SnapStart, 512 MB | 25 ms/batch | 400 / 900 ms | Builds envelopes; home region check |
 | `caliper-emitter` | SQS, home region | Java 21, 512 MB | 200 ms | 400 / 900 ms | POST; ledger per envelope |
 | `caliper-endpoint` | HTTP API `/ims/caliper/v1p2/*` | Java 21 SnapStart, 1024 MB | 40 ms | 350 / 800 ms | Validation; facts |
 | `cc-import` | Step Functions Standard | Java 21, 3008 MB, 10 GB ephemeral | — | — | Unzip, parse, convert QTI |
@@ -402,6 +429,7 @@ the ceiling; shard by `fact_id` prefix if a tenant exceeds 500/s.
 | `eduapi-api` | HTTP API `/ims/eduapi/v1p0/*` | Java 21 SnapStart, 1024 MB | 30–150 ms | 350 / 800 ms | |
 | `webhook-emitter` | SQS from `effect.ready`, home region | Java 21, 512 MB | 100 ms | 400 / 900 ms | HMAC; retries |
 | `or-index-updater` | EventBridge `fact.folded` (enrol/profile/cohort/struct) and `view.updated` | Java 21, 512 MB | 20 ms | 400 / 900 ms | Writes OR/ORD/ORR |
+| `scim-api` | HTTP API `/scim/v2/*` (strict tenants) | Java 21 SnapStart, 1024 MB | 40 ms | 350 / 800 ms | Facts + write-through to identity/status index |
 
 ## Propagation path
 
@@ -442,6 +470,7 @@ the ceiling; shard by `fact_id` prefix if a tenant exceeds 500/s.
 | Thin Common Cartridge 1.3 | Import and export | Certification | LTI links, web links | — | — |
 | Edu-API 1.0 | Provider | Conformance to core read model (certification when offered) | persons, courses, offerings, sections, enrollments, sessions | Write operations; programs beyond simple mapping | Same as OneRoster provider |
 | 1EdTech Security Framework 1.1 | Provider and consumer | Conformant | OAuth 2.0 client credentials, scoped tokens | — | Stateless tokens verifiable in every region |
+| SCIM 2.0 (RFC 7643, RFC 7644) | Service provider (strict organisations) | Core schema; Users, Groups, filter, PATCH, pagination; interoperability with Microsoft Entra ID and Okta provisioning | DIO-20 | Bulk operations, `/Me` | Write-through index for read-your-writes; deactivation propagates with replication lag (IDE-22) |
 
 ## Known Tensions
 

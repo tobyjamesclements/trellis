@@ -11,14 +11,14 @@
 
 ## 2. Build and deploy
 - [ ] 2.1 Maven multi-module build with SnapStart-ready packaging; `afterRestore` hooks for clients
-- [ ] 2.2 Cargo workspace: `trellis-core-rs`, `engine` (placeholder), build for `provided.al2023` and `wasm32`
+- [ ] 2.2 npm workspace: `@trellis/core`, `@trellis/engine` (placeholder), `app` shell; GraalJS embedding harness in the Java build
 - [ ] 2.3 Pipeline: build → unit tests → shared-vector cross-language test → deploy region A → canary → deploy region B
 - [ ] 2.4 Lambda defaults (memory, timeouts, architecture parameter, log retention 14 d, sampling env vars)
 
 ## 3. Shared libraries
 - [ ] 3.1 Key helpers for every PK/SK pattern in project.md §5 and FLS §DynamoDB
 - [ ] 3.2 HLC: 48+16 bit encoding, per-environment monotonic issuer, hex16 rendering, parsing
-- [ ] 3.3 Canonical CBOR encoder, SHA-256 `fact_id`, base32 rendering; shared test vectors (Java and Rust)
+- [ ] 3.3 Canonical CBOR encoder, SHA-256 `fact_id`, base32 rendering; shared test vectors (Java and TypeScript)
 - [ ] 3.4 Envelope encryption: data-key generation, `DK#` items, 5-minute plaintext cache, AES-256-GCM
 - [ ] 3.5 Registry client with 60 s in-memory cache; tenant context resolution from hostname
 - [ ] 3.6 Structured JSON logging with sampling; EMF metrics helper with bounded dimensions
@@ -34,6 +34,12 @@
 - [ ] 5.2 Operator CLI to invoke provisioning and print the tenant summary
 - [ ] 5.3 Provision one test tenant per zone
 
+## 5a. Security substrate (SEC-01, SEC-02, SEC-03, SEC-08)
+- [ ] 5a.1 Pipeline gates: SAST, dependency and SBOM scanning (Maven, npm), IaC scanning, artefact signing, block on critical findings
+- [ ] 5a.2 IAM Identity Center with MFA; per-function least-privilege roles; no long-lived keys
+- [ ] 5a.3 Security log pipeline: unsampled security events → CloudWatch → S3 with Object Lock, ≥ 12-month retention
+- [ ] 5a.4 Data classification register and TLS 1.2+/HSTS on every endpoint
+
 ## 6. Observability
 - [ ] 6.1 Dashboards per region: API latency and errors, Lambda cold starts, DynamoDB throttles, stream iterator age, queue age
 - [ ] 6.2 Alarms: throttles, error rate, health check failures, replication-lag proxy placeholder, budget 80%/100%
@@ -41,5 +47,5 @@
 
 ## 7. Verification
 - [ ] 7.1 Game day: fail one region's health check; DNS failover ≤ 2 min; recovery
-- [ ] 7.2 Cross-language vector test passes on Java and Rust builds
+- [ ] 7.2 Cross-language vector test passes on the Java and TypeScript builds
 - [ ] 7.3 Cost review: zone floor ≤ $60/month with no traffic

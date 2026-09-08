@@ -525,9 +525,9 @@ recipients.
 | Function | Trigger | Runtime / memory | Warm | Cold p50 / p99 | Notes |
 |---|---|---|---|---|---|
 | `com-read-api` | HTTP API `GET /forums/*`, `/threads/*`, `/search`, `/inbox`, `/conversations/*` | Java 21 SnapStart, 512 MB | 25 ms | 300 / 700 ms | Visibility projection, 50-node pages, freshness block |
-| `thread-updater` | SQS FIFO `com-views`, group `forum#cohort`, batch 10 | Rust `provided.al2023`, 1024 MB | 10 ms/fact | 20 / 60 ms | Tree fold, index segment append, flags, CAS on header; emits `view.updated`, `com.folded` |
-| `inbox-updater` | SQS FIFO `com-views`, groups `recipient#_msg` and `subject#_profile`; stream filter for `inapp#` ledger items | Rust, 512 MB | 5 ms/item | 20 / 60 ms | Inbox, mailbox, feed, conversation, preference and suppression items |
-| `forum-nm-recompute` | SQS delay 30 s from `view.updated` on `_forum` partitions | Rust, 1024 MB | 50–500 ms | 20 / 60 ms | `NM#top_rated` |
+| `thread-updater` | SQS FIFO `com-views`, group `forum#cohort`, batch 10 | Java 21 SnapStart, 1024 MB | 12 ms/fact | 400 / 900 ms | Tree fold, index segment append, flags, CAS on header; emits `view.updated`, `com.folded` |
+| `inbox-updater` | SQS FIFO `com-views`, groups `recipient#_msg` and `subject#_profile`; stream filter for `inapp#` ledger items | Java 21 SnapStart, 512 MB | 7 ms/item | 400 / 900 ms | Inbox, mailbox, feed, conversation, preference and suppression items |
+| `forum-nm-recompute` | SQS delay 30 s from `view.updated` on `_forum` partitions | Java 21 SnapStart, 1024 MB | 60–600 ms | 400 / 900 ms | `NM#top_rated` |
 | `notify-emitter` | EventBridge `com.folded`, `publish.conflict`, `deadline.changed`, `cap.exceeded`, `credential.issued`, `effect.ready`; SQS delay 60 s (coalesce) | Java 21 SnapStart, 1024 MB | 40 ms | 350 / 800 ms | Home check, recipients, preferences, consent, caps, ledger check and conditional put, outbox |
 | `notify-sender` | SQS standard `com-outbox`, batch 10 | Java 21 SnapStart, 1024 MB | 60 ms/msg | 350 / 800 ms | SES `SendEmail`; Web Push with VAPID; backoff on throttle; `outbox-sweeper` (Scheduler, 10 min) re-drives stale `claimed` items |
 | `delivery-recorder` | EventBridge (SES event destination); push outcomes from `notify-sender` | Java 21 SnapStart, 512 MB | 20 ms | 300 / 700 ms | Appends `notify.delivery.v1` |
@@ -551,7 +551,7 @@ COM's ~150 k monthly fact writes at L10k are costed in FLS, not here.
 
 | Component | L10k | 1M | Basis |
 |---|---|---|---|
-| Thread and inbox folds | 150 k facts × ~6 WRU (node, list entry, cursor, header share, queue, feed) × 2 regions = 1.8 M WRU ≈ $1.1; 0.3 M RRU ≈ $0.04; Rust 150 k × 10 ms × 1 GB ≈ $0.03 → **$1.2** | $120 | $0.625 / M WRU |
+| Thread and inbox folds | 150 k facts × ~6 WRU (node, list entry, cursor, header share, queue, feed) × 2 regions = 1.8 M WRU ≈ $1.1; 0.3 M RRU ≈ $0.04; Java 150 k × 12 ms × 1 GB ≈ $0.03 → **$1.2** | $120 | $0.625 / M WRU |
 | Search index segments | 150 k posts / 10 per batch = 15 k segment writes × ~140 KB = 2.1 M WRU × 2 regions → **$2.6** | $260 | 1 WRU per KB |
 | Announcement and message fan-out | 500 announcements × 200 members + 100 k messages = 0.2 M items × 2 regions = 0.4 M WRU → **$0.25** | $25 | |
 | Read API | 1.5 M forum and inbox reads: API GW $1.5; Lambda 1.5 M × 50 ms × 0.5 GB ≈ $0.6 + $0.3; 12 M RRU ≈ $1.5 → **$3.9** | $390 | ~8 RRU per page |

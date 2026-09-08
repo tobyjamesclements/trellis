@@ -1,5 +1,6 @@
 ## 1. Fact model and libraries
-- [ ] 1.1 Fact envelope types, canonical CBOR, `fact_id`, chain (`prev`) helpers in Java and Rust with shared vectors
+- [ ] 1.1 Fact envelope types, canonical CBOR, `fact_id`, chain (`prev`) helpers in Java and TypeScript with shared vectors
+- [ ] 1.5 `am.change.v1` type: actor/seq/deps alignment checks at ingest (FLS-21)
 - [ ] 1.2 Fact type registry loader and JSON-schema validation per `fact-types.md`
 - [ ] 1.3 Void effectiveness evaluator (effective-fact rule, void chains)
 - [ ] 1.4 Ingest library: authorisation hooks, encryption, envelope stamping, conditional put classification
@@ -28,7 +29,7 @@
 
 ## 6. Export
 - [ ] 6.1 DynamoDB export → Parquet transform → manifest
-- [ ] 6.2 On-demand export API for admins (decrypted path gated by ADM-13 in 012)
+- [ ] 6.2 On-demand export API for admins (decrypted path gated by ADM-13 in 015)
 
 ## 7. Device SDK
 - [ ] 7.1 IndexedDB store with durable seq allocation and chain

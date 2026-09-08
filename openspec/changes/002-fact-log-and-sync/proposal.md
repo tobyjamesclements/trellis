@@ -7,7 +7,7 @@ only way learner work enters it. Every capability after this one appends
 facts through the ingest library or consumes them from the stream. This
 change delivers FLS in full except cross-region anti-entropy (FLS-14), which
 needs the Merkle summaries maintained by the view updater and ships with
-change 007.
+change 008.
 
 ## What Changes
 
@@ -26,6 +26,7 @@ change 007.
 - Fact export to Parquet (monthly and on demand).
 - Device SDK for the PWA: local log with durable seq allocation, sync agent,
   vector bookkeeping, gap fill, region failover.
+- `am.change.v1` fact type for Automerge document scopes (FLS-21).
 
 ## Impact
 
@@ -55,6 +56,7 @@ change 007.
 - FLS-18
 - FLS-19
 - FLS-20
+- FLS-21
 
 ## Dependencies
 
@@ -63,4 +65,4 @@ ships, the sync endpoint authorises only `subject = session principal`.
 
 ## Out of scope
 
-FLS-14 (change 007). Any derivation.
+FLS-14 (change 008). Any derivation.

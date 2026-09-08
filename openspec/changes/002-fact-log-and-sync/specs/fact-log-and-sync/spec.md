@@ -323,3 +323,24 @@ unless the tenant admin requests a decrypted export (ADM-13).
 #### Scenario: Research data request
 - **WHEN** a tenant admin requests a decrypted export for one course
 - **THEN** the workflow filters by scope, decrypts with the tenant's keys, writes Parquet to the tenant's export prefix, and records an `export.v1` fact naming the manifest
+
+### Requirement: The system SHALL store Automerge changes as facts for collaborative document scopes, with actor, sequence and dependencies aligned to the stream model [FLS-21]
+
+The system SHALL store Automerge changes as facts for collaborative document scopes, with actor, sequence and dependencies aligned to the stream model.
+A collaborative document (ADR-023) is a scope `_doc#<doc_id>` (course
+content), `_draft#<activity>` (a learner's draft) or a group workspace.
+Each Automerge change is one `am.change.v1` fact: the Automerge actor id is
+the writer device, the Automerge per-actor `seq` is the stream `seq`, the
+change's dependency hashes are carried in `refs`, and the body is the binary
+change. The materialised document is derived state (region-owned,
+recomputable from the changes in any order); compacted snapshots are cached
+as content-addressed blobs keyed by the document heads and are never
+authority.
+
+#### Scenario: Two devices edit one page offline
+- **WHEN** two editors' devices each append changes to the same `_doc#` scope while offline and sync to different regions
+- **THEN** every region folds both streams and materialises the same document, with concurrent edits to the same text merged and concurrent values of the same map key preserved for display
+
+#### Scenario: Snapshot cache miss
+- **WHEN** the structure updater cannot find a snapshot blob for the document's current heads
+- **THEN** it materialises the document from all `am.change.v1` facts in the scope and writes a new snapshot blob keyed by the heads

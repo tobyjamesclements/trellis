@@ -419,7 +419,7 @@ over 16 shards.
 | Function | Trigger | Runtime / memory | Warm | Cold p50 / p99 | Notes |
 |---|---|---|---|---|---|
 | `lti-platform-oidc` | HTTP API `/lti/login`, `/lti/auth` | Java 21 SnapStart, 1024 MB | 40 ms | 350 / 800 ms | Signs `id_token` via KMS; nonce conditional put |
-| `lti-tool-launch` | HTTP API `/lti/tool/{login,launch}` | Java 21 SnapStart, 1024 MB | 60 ms | 350 / 900 ms | Validates `id_token`; appends launch fact; issues session. Cold start is user-visible; if p99 > 1 s in practice, ADR-001 permits a Rust rewrite of this function |
+| `lti-tool-launch` | HTTP API `/lti/tool/{login,launch}` | Java 21 SnapStart, 1024 MB | 60 ms | 350 / 900 ms | Validates `id_token`; appends launch fact; issues session. Cold start is user-visible; if measured p99 exceeds 1 s, ADR-020 permits a tenant-paid warm pool for this function |
 | `lti-token` | HTTP API `/lti/token` | Java 21 SnapStart, 512 MB | 30 ms | 300 / 700 ms | Client-assertion validation |
 | `lti-services` | HTTP API `/lti/nrps/*`, `/lti/ags/*`, `/lti/dl/*` | Java 21 SnapStart, 1024 MB | 30–80 ms | 350 / 800 ms | Scope checks; derived reads; fact appends |
 | `lti-registration` | HTTP API `/lti/register/*`, `/.well-known/*` | Java 21 SnapStart, 512 MB | 30 ms | 300 / 700 ms | |
@@ -519,5 +519,5 @@ over 16 shards.
 5. **Launch cold start.** A first launch after idle on a SnapStart Java
    function costs ~350–900 ms before the learner sees anything. The
    product accepts this for long-tail usage; if measured p99 exceeds 1 s,
-   ADR-001 authorises a Rust implementation of `lti-tool-launch` rather
-   than provisioned concurrency.
+   ADR-020 authorises a tenant-paid warm pool for `lti-tool-launch` as
+   the one provisioned-concurrency exception.

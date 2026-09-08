@@ -173,7 +173,7 @@ per-learner states with the MVA-02 freshness block and explain links to
 `fact_ids_used`, method and threshold (DRV-15 form); `GET /backpack/plans`
 returns each plan's CFItems with state, advisory target date, evidence and,
 for unmastered CFItems, aligned activities not yet attempted. A device may
-compute mastery locally with the WASM engine and labels the source (MVA-10);
+compute mastery locally with the TypeScript engine and labels the source (MVA-10);
 no content is withheld on a mastery predicate (ACT-11 posture).
 
 #### Scenario: Report with work in transit
@@ -458,6 +458,26 @@ pipeline and can be added later. Discovery omits the corresponding scopes.
 - **WHEN** a wallet calls `POST /ims/ob/v3p0/credentials`
 - **THEN** the response is `501` with a problem document naming the Host role as unsupported and linking the issuer discovery document
 
+### Requirement: The system SHALL transfer credentials issued in any organisation into the person's consumer-realm backpack by internal pointer transfer, without a Host implementation [CRD-16]
+
+The system SHALL transfer credentials issued in any organisation into the person's consumer-realm backpack by internal pointer transfer, without a Host implementation.
+A transfer is initiated by the person in the realm (IDE-24): for a soft
+member the identity link already exists; for a strict identity the
+organisation's single-use portability token proves the link. The realm
+copies each signed credential blob into the realm's blob prefix (so tenant
+deletion cannot remove it), appends `issue.v1`-referencing backpack facts
+under the realm principal, and records the transfer in both tenants'
+audit facts. Revocation status continues to resolve against the issuing
+organisation's status list; the realm backpack shows it.
+
+#### Scenario: Transfer after leaving a soft organisation
+- **WHEN** a member who left an organisation opens "collect my credentials"
+- **THEN** every credential issued to their organisation principal appears in the realm backpack with its verification status, and the organisation's backpack index marks them `transferred`
+
+#### Scenario: Issuer revokes after transfer
+- **WHEN** the organisation revokes a transferred credential
+- **THEN** the realm backpack shows it revoked at the next status-list refresh, within the lag stated in CRD-09
+
 ---
 
 ## DynamoDB access patterns
@@ -512,11 +532,11 @@ sharded by `hash(subject) mod 16`. Index builds ≤ 500 writes/s; ledger < 1/s.
 | Function | Trigger | Runtime / memory | Warm | Cold p50 / p99 | Notes |
 |---|---|---|---|---|---|
 | `case-fetch`, `case-index` (inside Step Functions Standard `case-import`) | HTTP API `POST /frameworks/import` | Java 21 SnapStart, 1024 MB | 2–20 s per package | 300 / 700 ms | Fetch or upload, schema check, blob, fact; index paced ≤ 500 writes/s |
-| `crd-index-updater` | EventBridge `fact.folded` (structure and tenant types) → SQS FIFO `crd-index`, group = course or tenant, batch 10 | Rust, 512 MB | 5 ms/fact | 20 / 60 ms | Alignment, achievement, client, issuer indexes |
-| (in-process) mastery and rule evaluation | Linked into `nm-recompute` (MVA-07) | Rust | +5–50 ms/run | — | Writes changed `NM#mastery#L#` items; creates intents; the 24 h wait itself is a Step Functions `Wait` that invokes MVA's `intent-evaluator` |
+| `crd-index-updater` | EventBridge `fact.folded` (structure and tenant types) → SQS FIFO `crd-index`, group = course or tenant, batch 10 | Java 21 SnapStart, 512 MB | 7 ms/fact | 400 / 900 ms | Alignment, achievement, client, issuer indexes |
+| (in-process) mastery and rule evaluation | Linked into `nm-recompute` (MVA-07) | Java | +10–80 ms/run | — | Writes changed `NM#mastery#L#` items; creates intents; the 24 h wait itself is a Step Functions `Wait` that invokes MVA's `intent-evaluator` |
 | `credential-emitter` | EventBridge `effect.ready {kind: credential, clr}` and `fact.folded {award.v1}` → SQS FIFO `crd-emit`, group = subject, max concurrency 20; home region only | Java 21 SnapStart, 1024 MB | 250 ms | 350 / 800 ms | Cross-region ledger reads, KMS `Sign`, S3 PUT, two facts, ledger, event |
-| `backpack-updater` | EventBridge `fact.folded` (subject types) → SQS FIFO `crd-subject`, group = subject | Rust, 512 MB | 10 ms/fact | 20 / 60 ms | `BP`, `PEND`, `CID`, `SL#R#`; starts reconcile and review |
-| `status-list-builder` | EventBridge `credential.revoked` → SQS delay 30 s; Scheduler hourly per issuer | Rust, 512 MB | 100–500 ms | 20 / 60 ms | Both lists, KMS `Sign`, S3 PUT, CAS `HDR` |
+| `backpack-updater` | EventBridge `fact.folded` (subject types) → SQS FIFO `crd-subject`, group = subject | Java 21 SnapStart, 512 MB | 12 ms/fact | 400 / 900 ms | `BP`, `PEND`, `CID`, `SL#R#`; starts reconcile and review |
+| `status-list-builder` | EventBridge `credential.revoked` → SQS delay 30 s; Scheduler hourly per issuer | Java 21 SnapStart, 512 MB | 120–600 ms | 400 / 900 ms | Both lists, KMS `Sign`, S3 PUT, CAS `HDR` |
 | `crd-api` | HTTP API `/frameworks/*`, `/achievements/*`, `/backpack/*`, `/credentials/*`, `/evidence/*`, `/views/competency/*`, DID documents, status URLs | Java 21 SnapStart, 512 MB | 20–60 ms | 300 / 700 ms | Baking and verification in-process |
 | `ob3-api` | HTTP API `/ims/ob/v3p0/*`, `/ims/clr/v2p0/*`, `/oauth2/*` | Java 21 SnapStart, 512 MB | 15–40 ms | 300 / 700 ms | Tokens signed via KMS with IDE-03 keys |
 | `certificate-render` | HTTP API `GET /credentials/{id}/certificate` | Java 21 SnapStart, 1536 MB | 300 ms HTML / 1.5 s PDF | 500 / 1200 ms | Cached by hash; PDF behind ADM-05 flag |
@@ -569,7 +589,7 @@ alarms on issuance p99 > 10 min, status-list lag > 5 min, any KMS throttle.
 | Course-level mastery and rule evaluation | 100 k runs × (8 RRU + 4 WRU × 2 regions) ≈ 0.8 M RRU + 0.8 M WRU → **$0.6** | $60 | |
 | Stability wait (Step Functions Standard) | 10.5 k intents × 5 transitions + 2 re-arms × 2 transitions ≈ 95 k × $25/M → **$2.4** | $240 | 24 h `Wait`; Scheduler one-shots at $1/M would cut this 20× |
 | Issuance (10 k OB + 0.5 k CLR) and other credential-side facts (≈ 20 k) | KMS 10.5 k × $0.03/10k = $0.03; S3 PUT $0.05; Lambda 10.5 k × 0.3 s × 1 GB ≈ $0.05; 4 replicated items × 10.5 k × 2 regions ≈ 92 k rWRU ≈ $0.09; 20 k facts × 1.2 rWRU × 2 ≈ $0.05; SQS/EventBridge $0.02 → **$0.3** | $30 | Emails counted in COM; $0.9375/M rWRU |
-| Index and backpack updaters | 60 k folded facts × 2 regions × 3 WRU = 360 k WRU → **$0.25** | $25 | Rust compute negligible |
+| Index and backpack updaters | 60 k folded facts × 2 regions × 3 WRU = 360 k WRU → **$0.25** | $25 | Java compute negligible |
 | Status lists | (100 revocations + 1,440 hourly) × 2 regions × (Sign + 2 PUT + 0.3 s × 0.5 GB) → **$0.05**; 50 k fetches within CloudFront free tier | $2 | Lists ≤ 100 KB |
 | KMS key rental | 2 issuers × 2 regions × $1 = $4; $8 during rotation overlap → **$4–8** | $40–80 (20 issuers) | Scales with issuers, not learners |
 | APIs (backpack 50 k, verify 50 k, OB3/CLR 5 k) and certificates (5 k, PDF) | 105 k × $1/M + 105 k × 50 ms × 0.5 GB ≈ $0.15; 5 k × 1.5 s × 1.5 GB = 11 k GB-s ≈ $0.2 → **$0.35** | $35 | DID and status via CloudFront; HTML certificates ~5× cheaper |

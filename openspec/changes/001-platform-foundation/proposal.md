@@ -21,8 +21,10 @@ and the tenant provisioning workflow, and it runs the spike.
   hosted zone and latency records with health checks, API Gateway HTTP API
   per region with JWT authorizer scaffold, regional EventBridge buses, SQS
   FIFO queues (`roster`, `views`) and delay queues, SSM parameters.
-- Build and deploy pipeline for Java 21 (Maven, SnapStart) and Rust
-  (`provided.al2023`, `wasm32`) with per-region deployment and canaries.
+- Build and deploy pipeline for the Java 21 backend (Maven, SnapStart,
+  JNI artefacts for the Automerge binding) and the TypeScript client and
+  engine packages (npm), with per-region deployment, canaries and the
+  secure-by-design gates of SEC-01.
 - Shared libraries: single-table key helpers, HLC, canonical CBOR and
   `fact_id`, envelope encryption with data-key cache, tenant context
   resolution from the registry, structured logging with sampling, EMF
@@ -33,6 +35,9 @@ and the tenant provisioning workflow, and it runs the spike.
 - Tenant provisioning workflow (Step Functions Standard) and the registry
   writer.
 - Observability baseline: dashboards, alarms, status page scaffold.
+- Security substrate: operator identity with MFA and least-privilege roles
+  (SEC-02), the unsampled immutable security log (SEC-03), data
+  classification and transport encryption (SEC-08).
 
 ## Impact
 
@@ -49,6 +54,10 @@ and the tenant provisioning workflow, and it runs the spike.
 - ADM-18
 - ADM-19
 - ADM-21
+- SEC-01
+- SEC-02
+- SEC-03
+- SEC-08
 
 ## Dependencies
 

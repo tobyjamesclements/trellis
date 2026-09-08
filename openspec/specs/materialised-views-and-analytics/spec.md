@@ -329,12 +329,12 @@ per-shard sub-headers folded on read. No LSIs, so split-for-heat applies.
 
 | Function | Trigger | Runtime / memory | Warm | Cold p50 / p99 | Notes |
 |---|---|---|---|---|---|
-| `view-updater` | SQS FIFO `views`, group = partition, batch 10, max concurrency 200 | Rust, 1024 MB | 15 ms/fact | 20 / 60 ms | Links derivation engine; CAS writes; emits `view.updated` |
-| `nm-recompute` | SQS delay queue (debounce 30 s) from `view.updated` | Rust, 1024 MB | 100–800 ms | 20 / 60 ms | Reads all rows; writes NMRow; creates intents |
-| `intent-evaluator` | SQS delay queue (window ≤ 15 min) or Step Functions Wait (longer) | Rust, 512 MB | 30 ms | 20 / 60 ms | Re-checks dominance and predicate; hands off to emitters |
+| `view-updater` | SQS FIFO `views`, group = partition, batch 10, max concurrency 200 | Java 21 SnapStart with the GraalJS-hosted engine, 2048 MB | 40 ms/fact interpreted (≈ 8 ms with JIT) | 600 / 1,500 ms | Embeds the derivation engine; CAS writes; emits `view.updated` |
+| `nm-recompute` | SQS delay queue (debounce 30 s) from `view.updated` | Java 21 SnapStart, 1024 MB | 150–1,000 ms | 400 / 900 ms | Reads all rows; writes NMRow; creates intents |
+| `intent-evaluator` | SQS delay queue (window ≤ 15 min) or Step Functions Wait (longer) | Java 21 SnapStart, 512 MB | 40 ms | 400 / 900 ms | Re-checks dominance and predicate; hands off to emitters |
 | `view-api` | HTTP API `GET /views/*`, `POST …/dominates` | Java 21 SnapStart, 512 MB | 20 ms | 300 / 700 ms | Pagination, freshness block, explain links |
-| `partition-recompute` | Step Functions Distributed Map (per subject) | Rust, 1024 MB | 30 ms/subject | 20 / 60 ms | Generation writes |
-| `view-verifier` | EventBridge Scheduler daily | Rust, 1024 MB | — | — | 1% sample |
+| `partition-recompute` | Step Functions Distributed Map (per subject) | Java 21 SnapStart with the GraalJS-hosted engine, 2048 MB | 1.5 s/subject interpreted (≈ 0.3 s with JIT) | 600 / 1,500 ms | Generation writes |
+| `view-verifier` | EventBridge Scheduler daily | Java 21 SnapStart with the GraalJS-hosted engine, 2048 MB | — | — | 1% sample |
 | `analytics-rollup` | EventBridge Scheduler daily | Java 21, 1024 MB | — | — | Header folds |
 
 ## Propagation path
@@ -351,7 +351,7 @@ per-shard sub-headers folded on read. No LSIs, so split-for-heat applies.
 |---|---|---|---|
 | Fold writes | 5 M facts × 2 regions… (already both regions) ≈ 2.5 WRU/fact after batching → 12.5 M WRU ≈ **$7.8** | $780 | regional WRU |
 | Fold reads | 5 M × 1 RRU ≈ **$0.6** | $60 | |
-| Fold compute | 5 M × 15 ms × 1 GB = 75 k GB-s ≈ **$1.3** + 0.5 M invocations $0.1 | $140 | |
+| Fold compute | 5 M × 40 ms × 2 GB = 400 k GB-s ≈ **$6.7** (≈ $1.5 with JIT) + 0.5 M invocations $0.1 | $680 | |
 | SQS FIFO (views) | 0.5 M batched requests ≈ **$0.3** | $30 | |
 | NM recompute | ~200 k runs × (50 RRU + 4 WRU + 0.4 s) ≈ **$3.5** | $350 | debounced |
 | Intents and evaluator | 50 k intents ≈ **$0.2** | $20 | |
@@ -359,7 +359,7 @@ per-shard sub-headers folded on read. No LSIs, so split-for-heat applies.
 | Recomputes | 200 partitions / month ≈ **$0.5** | $50 | |
 | Verifier, rollups | ≈ **$0.5** | $30 | |
 | Derived storage | ~10 GB × $0.25 ≈ **$2.5** | $250 | no PITR |
-| **Total (both regions)** | **≈ $18** | ≈ $1,800 | |
+| **Total (both regions)** | **≈ $24** (≈ $19 with JIT) | ≈ $2,300 | |
 
 ## Standards conformance
 

@@ -8,8 +8,8 @@ pricing. Figures are order-of-magnitude.
 | Capability | L10k (10,000 active learners / month) | 1M learners | Dominant line |
 |---|---|---|---|
 | Fact log and sync (FLS) | ≈ $19 (+ $2.7 / month cumulative storage) | ≈ $1,800 | Replicated fact writes; roster folds |
-| Derivation engine (DRV) | ≈ $1 | ≈ $440 | WASM distribution at scale |
-| Materialised views and analytics (MVA) | ≈ $18 | ≈ $1,800 | Fold writes in both regions; NM recompute |
+| Derivation engine (DRV) | ≈ $4 | ≈ $450 | GraalJS interpreter compute; bundle distribution at scale |
+| Materialised views and analytics (MVA) | ≈ $24 (≈ $19 with JIT) | ≈ $2,300 | Fold writes in both regions; GraalJS-hosted engine compute; NM recompute |
 | Identity and enrolment (IDE) | ≈ $19 (Cognito excluded) | ≈ $1,700 (+ Cognito if SAML at scale) | Magic-link email; KMS signing |
 | Course authoring and content (CAC) | ≈ $8 | ≈ $5,000 | CloudFront egress above the free tier |
 | Activities and assessment (ACT) | ≈ $8.5 | ≈ $850 | API reads; ICS polling |

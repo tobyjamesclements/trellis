@@ -6,9 +6,10 @@ Capability ID prefix: **DRV**
 
 The derivation engine is the pure, versioned function library that turns a
 fact set into marks, feedback, attempt outcomes, lateness, gradebook
-aggregates, completion and availability predicates. It is one implementation
-compiled twice: to WASM for the learner device (immediate, offline marking)
-and to a native Lambda for the server (views, interop, re-derivation). It
+aggregates, completion and availability predicates. It is one TypeScript
+implementation executed in two places: in a Web Worker on the learner's
+device (immediate, offline marking) and under GraalJS inside the Java
+Lambdas on the server (views, interop, re-derivation), per ADR-001. It
 stores nothing. Every output it produces is reproducible from the facts and
 the versions it was given.
 
@@ -73,16 +74,25 @@ from, and is overwritten by re-derivation without migration.
 ### Requirement: The system SHALL ship one engine implementation to both device and server and record its version on every output [DRV-02]
 
 The system SHALL ship one engine implementation to both device and server and record its version on every output.
-The engine is a single Rust crate built to `wasm32` for the client and to a
-native Lambda (`provided.al2023`) for the server. A golden-vector suite
-(≥ 500 items across all supported interactions, including edge cases for
-rounding, mapping, and lateness) must pass identically on both targets
-before release. `engine_version` appears in every derived row and in the
-client's `client_mark` hint.
+The engine is a single TypeScript package (`@trellis/engine`, strict mode,
+no DOM or Node dependencies). The client runs it in a Web Worker. The
+server embeds the same built bundle in every engine-hosting Java Lambda and
+executes it with GraalJS through the polyglot API; the polyglot context is
+created at initialisation so SnapStart snapshots it warm, and the Graal
+compiler is enabled through JVMCI where measured throughput requires it. A
+golden-vector suite (≥ 500 items across all supported interactions, plus
+rounding, mapping, lateness, attempt and aggregation policies) must pass
+identically on V8, SpiderMonkey, JavaScriptCore and GraalJS before release.
+`engine_version` appears in every derived row and in the client's
+`client_mark` hint.
 
 #### Scenario: Release gate
-- **WHEN** a build's WASM and native outputs differ on any golden vector
+- **WHEN** a build's outputs differ between any browser engine and GraalJS on any golden vector
 - **THEN** the release pipeline fails and nothing is deployed
+
+#### Scenario: Server execution
+- **WHEN** the view updater folds a response fact
+- **THEN** it calls the engine bundle through the snapshotted GraalJS context and records the bundle's `engine_version` in the row's provenance
 
 #### Scenario: Mixed versions in the field
 - **WHEN** a device runs engine 1.4 and the server runs 1.5
@@ -91,10 +101,16 @@ client's `client_mark` hint.
 ### Requirement: The system SHALL be deterministic: no wall-clock, locale, randomness or floating-point dependence in any derivation [DRV-03]
 
 The system SHALL be deterministic: no wall-clock, locale, randomness or floating-point dependence in any derivation.
-All arithmetic is decimal or rational. Time enters only as fact HLCs and
-policy deadlines. Randomised QTI features (shuffle, template variables) are
-seeded from `(subject, item, attempt_n, key_version)` so the same attempt
-re-derives with the same seed. Ordering is by `(sync_hlc, fact_id)`.
+All arithmetic is decimal or rational through a pure-TypeScript decimal
+library; IEEE-754 doubles never carry a score. Time enters only as fact HLCs
+and policy deadlines. Randomised QTI features (shuffle, template variables)
+are seeded from `(subject, item, attempt_n, key_version)` with a
+ChaCha20-based generator implemented in the engine, so the same attempt
+re-derives with the same seed. Ordering is by `(sync_hlc, fact_id)`. The
+engine's ECMAScript subset is enforced by lint: no `Math` transcendental or
+rounding functions, no `Intl`, no `Date`, no `Map`/`Set` iteration-order
+dependence on insertion of non-string keys, only stable sorts with explicit
+comparators, no regular-expression features that differ between engines.
 
 #### Scenario: Recompute equals fold
 - **WHEN** a partition is recomputed from scratch at the same vector as an incrementally folded view
@@ -295,14 +311,20 @@ The system SHALL honour derivation epochs so a cohort can be reset without delet
 ### Requirement: The system SHALL meet derivation performance bounds on both targets [DRV-17]
 
 The system SHALL meet derivation performance bounds on both targets.
-Per `(subject, module)` with 1,000 effective facts and 100 items: ≤ 50 ms
-native, ≤ 200 ms WASM on a 2019-class mobile device. WASM bundle ≤ 2 MB
-compressed. Partition recompute for 2,000 learners ≤ 60 s wall-clock under a
-Distributed Map with concurrency 50.
+Per `(subject, module)` with 1,000 effective facts and 100 items: ≤ 200 ms
+in a browser Web Worker on a 2019-class mobile device and ≤ 2 s under
+GraalJS in interpreter mode on a 1,024 MB Lambda (≤ 300 ms with the Graal
+compiler enabled). Engine bundle ≤ 300 KB compressed. Partition recompute
+for 2,000 learners ≤ 60 s wall-clock under a Distributed Map with
+concurrency 50 at interpreter speed.
 
 #### Scenario: Bundle size gate
-- **WHEN** a build's compressed WASM exceeds 2 MB
+- **WHEN** a build's compressed engine bundle exceeds 300 KB
 - **THEN** the release pipeline fails
+
+#### Scenario: Interpreter budget
+- **WHEN** the server-side derivation of a 1,000-fact subject exceeds 2 s on the reference Lambda
+- **THEN** the build enables the Graal compiler for engine-hosting functions or fails the performance gate
 
 ---
 
@@ -323,10 +345,10 @@ subject PKs. Blob cache misses hit S3, not DynamoDB.
 
 | Function | Trigger | Runtime / memory | Cold p50 / p99 | Notes |
 |---|---|---|---|---|
-| (in-process) | Linked into `view-updater` and `partition-recompute` (MVA) | Rust, native | 20 / 60 ms | No separate function on the fold path |
-| `derive-explain` | HTTP API `GET /derive/explain` | Rust, 512 MB | 20 / 60 ms | Re-derives one `(subject, item)` on demand with full provenance |
-| `engine-conformance` | CI / on demand | Rust, 1024 MB | — | Runs golden vectors on the deployed native build |
-| Device | WASM in the PWA | — | ~50 ms instantiate | Marks on every response, evaluates availability on navigation |
+| (in-process) | Embedded in `view-updater` and `partition-recompute` (MVA) through GraalJS | Java 21 SnapStart, 1024–2048 MB | 600 / 1,500 ms | No separate function on the fold path; context restored from the snapshot |
+| `derive-explain` | HTTP API `GET /derive/explain` | Java 21 SnapStart + GraalJS, 1024 MB | 600 / 1,500 ms | Re-derives one `(subject, item)` on demand with full provenance |
+| `engine-conformance` | CI / on demand | Java 21 + GraalJS, 1024 MB | — | Runs golden vectors on the deployed server build |
+| Device | TypeScript in a Web Worker in the PWA | — | ~30 ms worker start | Marks on every response, evaluates availability on navigation |
 
 ## Propagation path
 
@@ -338,11 +360,11 @@ Pure function; no propagation of its own. Version changes propagate as
 
 | Component | L10k | 1M | Basis |
 |---|---|---|---|
-| Incremental derivation compute | inside MVA fold (5 M × ~5 ms) ≈ **$0.4** | $40 | Rust, 1 GB |
-| Partition recomputes (policy/key changes) | ~200 / month × 100 learners × 40 facts ≈ 0.8 M RRU + compute ≈ **$0.5** | $50 | |
+| Incremental derivation compute | inside MVA fold (5 M × ~40 ms interpreted) ≈ 200 k GB-s ≈ **$3.3** | $330 | Java + GraalJS, 1 GB; ~$0.5 with JIT |
+| Partition recomputes (policy/key changes) | ~200 / month × 100 learners × (40 facts + 1.5 s) ≈ 0.8 M RRU + 30 k GB-s ≈ **$0.6** | $60 | |
 | Explain endpoint | 20 k calls ≈ **$0.1** | $10 | |
-| WASM distribution | 2 MB × 10 k × 2 releases = 40 GB CloudFront ≈ **$0** (free tier) | $340 | |
-| **Total** | **≈ $1** | ≈ $440 | |
+| Engine bundle distribution | 300 KB × 10 k × 2 releases = 6 GB CloudFront ≈ **$0** (free tier) | $50 | |
+| **Total** | **≈ $4** | ≈ $450 | |
 
 ## Standards conformance
 
@@ -364,6 +386,16 @@ Pure function; no propagation of its own. Version changes propagate as
    stick. Trellis derives it, so a void can un-complete. The client shows
    the transition and the reason; notifications of completion are gated
    (COM-07), so nothing is un-sent.
-4. **Determinism across toolchains.** Rust `Decimal` and the WASM target
-   are deterministic; anything that touches system locale or `f64` is a
-   defect. The golden-vector gate is the enforcement, not a guarantee.
+4. **Determinism across JavaScript engines.** The engine runs on four
+   engines (V8, SpiderMonkey, JavaScriptCore, GraalJS). ECMAScript
+   specifies number and string semantics precisely, but `Math`
+   transcendental functions, `Intl`, regular-expression corner cases and
+   `Date` are engine- or platform-dependent and are banned by lint. The
+   golden-vector matrix is the enforcement, not a guarantee; a residual
+   engine bug would show as a `client_mark` mismatch metric (DRV-14) before
+   it showed in a view.
+5. **Interpreter speed on the server.** GraalJS without the Graal compiler
+   is one to two orders of magnitude slower than a JIT-compiled browser.
+   The fold path is small per fact and fits; recomputes parallelise; the
+   JVMCI-enabled compiler is the first lever, the TeaVM fallback (ADR-001)
+   the last. Recommendation: measure in change 006 and decide there.

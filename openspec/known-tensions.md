@@ -310,3 +310,118 @@ multi-region database).
 
 **Recommendation.** Keep video external, batch folds, sample logs, and
 measure "cost per active learner" monthly (ADM-15).
+
+---
+
+## 16. Soft organisations manage membership, not identity
+
+**The break.** A soft organisation federates with the consumer realm; it
+holds aliases, not identities (ADR-026). It cannot reset, rename, suspend
+or recover a member, and because subjects are pairwise per organisation,
+one person in three organisations is three principals that nothing merges.
+
+**Symptom.** "Help, my student can't log in" lands on the organisation,
+which can do nothing; a learner's dashboard in one organisation never shows
+their work in another.
+
+**Options.** (a) Let organisations trigger the realm's own recovery flow
+for a member (reveals nothing, recommended); (b) let organisations hold a
+recovery secret (that is ownership; rejected); (c) global subjects so
+dashboards could aggregate (breaks the privacy promise soft members are
+given; rejected). Aggregation happens only through what the person
+transfers or exports (IDE-24, CRD-16).
+
+---
+
+## 17. Strict ownership versus the person's record
+
+**The break.** A strict organisation owns the identity and may forbid
+export of the learning data, yet credentials are issued to the person.
+
+**Symptom.** A former employee keeps the badges and loses the coursework.
+
+**Recommendation.** Policy default `credentials_always, data_on_request`;
+a strict organisation may disable the learning-data export but never the
+credential transfer (IDE-24). Say so in the tenant's terms.
+
+---
+
+## 18. One engine, four JavaScript engines
+
+**The break.** The derivation engine is one TypeScript implementation that
+runs on V8, SpiderMonkey, JavaScriptCore and GraalJS (ADR-001). ECMAScript
+fixes number and string semantics, but `Math` transcendental functions,
+`Intl`, `Date` and regular-expression corner cases are engine- or platform-
+dependent, and GraalJS without the Graal compiler is one to two orders of
+magnitude slower than a browser JIT.
+
+**Symptom.** A mark that differs by a rounding unit between device and
+server would surface as a `client_mark` mismatch; server folds cost more
+CPU than they would in a compiled language.
+
+**Options.** (a) A linted deterministic subset plus the golden-vector matrix
+across all four engines (DRV-03, recommended); (b) enabling the Graal
+compiler through JVMCI in engine-hosting functions when measurements
+require it; (c) the TeaVM fallback (Java engine compiled to JavaScript) if
+GraalJS cannot meet DRV-17. Recommendation: (a) always, (b) as the first
+lever, (c) as the last.
+
+---
+
+## 19. Automerge lists have no move
+
+**The break.** Automerge documents (ADR-023) merge concurrent text and map
+edits without loss, but a "move" in a list is a delete plus an insert, so
+two editors moving the same block concurrently produce two copies. The
+binary format is also versioned by the Automerge project.
+
+**Symptom.** A duplicated paragraph after a concurrent reorder; a future
+Automerge format change requiring re-materialisation.
+
+**Recommendation.** Keep the course tree on the purpose-built operation
+log (moves are first-class there); inside documents de-duplicate by block
+id deterministically at materialisation and record it in history (CAC-22);
+store raw changes as facts so any format change is a recompute, never a
+migration; treat snapshots as caches.
+
+---
+
+## 20. The Cyber Assessment Framework assesses an organisation; Trellis is a system
+
+**The break.** Contributing outcomes on governance, risk management,
+training and lessons learned are organisational. Two of the design's own
+choices also pull against the CAF: sampled application logs (ADR-020) and
+learners' untrusted devices holding learning data offline (ADR-006, B3.d).
+
+**Symptom.** An assessor asks for evidence the system cannot produce
+alone; a learner's phone holds their own answers unencrypted; an
+instructor's laptop holds a cohort's work.
+
+**Recommendation.** Security-relevant events are never sampled and go to an
+immutable store (SEC-03, amending ADR-020); instructor and admin replicas
+are encrypted with a session-bound key and purged after idle (SEC-09);
+learner replicas are the learner's own data and the accepted risk is
+stated in the mapping; `caf-mapping.md` names, for every contributing
+outcome, what the system supplies and what the operating organisation must
+do (ADR-024).
+
+---
+
+## 21. Accessibility versus dragging interactions and embedded tools
+
+**The break.** Several QTI interactions are pointer-driven (order,
+associate, gap match, graphic and hotspot interactions, sliders) and WCAG
+2.2 requires a single-pointer or keyboard alternative (2.5.7); LTI tools
+rendered in iframes are third-party UIs whose accessibility Trellis cannot
+guarantee.
+
+**Symptom.** An interaction an author wants is unavailable until its
+accessible rendering ships; an accessibility statement that must disclose
+embedded tools as out of Trellis's control.
+
+**Recommendation.** Interactions without an accessible rendering are hidden
+from authoring (UIX-05); every shipped interaction has keyboard and
+single-pointer alternatives; the per-tenant accessibility statement
+(UIX-07) discloses embedded tools; tool registrations may carry an
+accessibility attestation shown to authors.
+

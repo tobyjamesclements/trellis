@@ -47,3 +47,14 @@ notice regularly; **M** noticed occasionally; **L** rare or invisible.
 | T-38 | Immediate at-risk alerts | 5-minute delay; 24 h for credentials | Tenant policy; never zero (MVA-08) | MVA | L |
 | T-39 | Locked forums that refuse posts | Posts from stale clients after lock are accepted and flagged | Moderator void (COM) | COM | L |
 | T-40 | Hidden Q&A answers against a modified client | A modified client can request hidden answers | Server serves from derived state per policy; accepted residual (COM) | COM | L |
+| T-41 | Organisation-side account recovery in soft organisations | "My member can't log in" cannot be fixed by the organisation | Organisation can trigger the realm's recovery flow; boundary stated in the console (IDE-21) | IDE | M (KT §16) |
+| T-42 | One principal per person across organisations | A person in several soft organisations is several principals; no cross-organisation dashboard | Pairwise subjects by design; transfer and export are the aggregation path (IDE-20, IDE-24, CRD-16) | IDE, CRD | L (KT §16) |
+| T-43 | Unconditional data portability from strict organisations | A deprovisioned user may lose access to coursework but keeps credentials | Policy `credentials_always, data_on_request` (IDE-24) | IDE | M (KT §17) |
+| T-44 | Compiled-speed server derivation | GraalJS interpreter costs ~3× on fold compute; recomputes take ~1.5 s per subject | JVMCI compiler lever; Distributed Map; TeaVM fallback (ADR-001, DRV-17) | DRV, MVA | L (KT §18) |
+| T-45 | Unrestricted JavaScript in the engine | Engine authors cannot use `Math`, `Intl`, `Date` or regex corner cases | Lint-enforced subset; golden vectors on four engines (DRV-03) | DRV | L (KT §18) |
+| T-46 | Move semantics inside Automerge documents | Concurrent block moves duplicate a block | Deterministic de-duplication by block id; course tree kept on the operation log (CAC-22, ADR-023) | CAC, ACT | L (KT §19) |
+| T-47 | Sampled, short-lived logs everywhere | Security events are retained unsampled for ≥ 12 months and contain pseudonymous ids after erasure | Immutable security log with retention; erasure residual stated (SEC-03, ADM-11) | SEC, ADM | L (KT §20) |
+| T-48 | Every QTI interaction available to authors at once | Pointer-only interactions are hidden until an accessible rendering exists | Keyboard and single-pointer alternatives shipped per interaction (UIX-05) | UIX, CAC | M (KT §21) |
+| T-49 | Accessibility guarantees for embedded LTI tools | Third-party tools in iframes may not meet WCAG | Statement discloses; tool accessibility attestation shown to authors (UIX-07) | UIX, LTI | M (KT §21) |
+| T-50 | Unlimited offline marking window on instructor devices | Instructor replicas are purged after idle and encrypted with a session-bound key | SEC-09; re-pull on return (FLS-10) | SEC, ACT | L (KT §20) |
+

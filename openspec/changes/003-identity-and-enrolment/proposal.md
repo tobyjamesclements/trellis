@@ -19,11 +19,14 @@ the loop, sub-cohort splitting, account merge, and the user directory.
 - `cap-reconcile` and `cohort-sync` workflows.
 - Enrolment, roles, cohorts and directory APIs; consent prompts; device and
   session management UI.
+- Identity modes on tenants (IDE-19) and the strict-organisation identity
+  lifecycle (IDE-22); the consumer realm and soft organisations follow in
+  change 013.
 
 ## Impact
 
 - Unlocks FLS-10/11 full authorisation.
-- Defines partitions (module, cohort) for views (007).
+- Defines partitions (module, cohort) for views (008).
 - Adds `E#`, `M#`, `RL#`, `RV#`, `IDX#`, `DIR#`, `CAP#`, `PR#` items.
 
 ## Requirements delivered
@@ -46,13 +49,15 @@ the loop, sub-cohort splitting, account merge, and the user directory.
 - IDE-16
 - IDE-17
 - IDE-18
+- IDE-19
+- IDE-22
 
 ## Dependencies
 
 001, 002. Notifications for reconciliation and merges use a minimal SES
-sender until 008 delivers the gated emitter; the sender writes the sent
-ledger from the start so 008 inherits it.
+sender until 009 delivers the gated emitter; the sender writes the sent
+ledger from the start so 009 inherits it.
 
 ## Out of scope
 
-LTI login (009), SIS import (010).
+LTI login (010), SIS import (011).
