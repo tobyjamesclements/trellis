@@ -1,0 +1,18 @@
+{
+  "name": "@trellis/transports",
+  "version": "0.0.0",
+  "private": true,
+  "description": "LAN transports authenticated by the site key, each an automerge-repo network adapter",
+  "license": "MIT",
+  "type": "module",
+  "sideEffects": false,
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc -p tsconfig.json"
+  },
+  "dependencies": {
+    "@trellis/core": "workspace:*"
+  }
+}

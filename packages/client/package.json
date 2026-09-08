@@ -1,0 +1,20 @@
+{
+  "name": "@trellis/client",
+  "version": "0.0.0",
+  "private": true,
+  "description": "The installable web application shell that runs on every device",
+  "license": "MIT",
+  "type": "module",
+  "scripts": {
+    "typecheck": "tsc -p tsconfig.json",
+    "build": "vite build --logLevel warn",
+    "dev": "vite",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "@trellis/core": "workspace:*"
+  },
+  "devDependencies": {
+    "vite": "^8.2.2"
+  }
+}

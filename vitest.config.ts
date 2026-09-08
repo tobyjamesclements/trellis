@@ -1,0 +1,38 @@
+import { playwright } from "@vitest/browser-playwright";
+import { defineConfig } from "vitest/config";
+
+/**
+ * Two test projects share one runner:
+ *
+ * - `node` runs every package's `*.test.ts` under Node, the box runtime.
+ * - `browser` runs the shared core's whole suite again inside headless
+ *   Chromium, the device runtime, so that everything meant to be identical on
+ *   every peer (Web Crypto, CBOR, the fold) is exercised where it will run.
+ */
+export default defineConfig({
+  test: {
+    projects: [
+      {
+        test: {
+          name: "node",
+          environment: "node",
+          include: ["packages/*/src/**/*.test.ts"],
+          exclude: ["**/node_modules/**", "**/dist/**"],
+        },
+      },
+      {
+        test: {
+          name: "browser",
+          include: ["packages/core/src/**/*.test.ts"],
+          exclude: ["**/node_modules/**", "**/dist/**"],
+          browser: {
+            enabled: true,
+            headless: true,
+            provider: playwright(),
+            instances: [{ browser: "chromium" }],
+          },
+        },
+      },
+    ],
+  },
+});

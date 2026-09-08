@@ -1,0 +1,21 @@
+{
+  "name": "@trellis/box",
+  "version": "0.0.0",
+  "private": true,
+  "description": "The box: site key holder, stock room, directory, and sync hub for one site",
+  "license": "MIT",
+  "type": "module",
+  "scripts": {
+    "typecheck": "tsc -p tsconfig.json",
+    "build": "esbuild src/main.ts --bundle --platform=node --format=esm --target=node22 --external:@automerge/automerge --outfile=dist/box.mjs --log-level=warning",
+    "start": "node dist/box.mjs"
+  },
+  "dependencies": {
+    "@trellis/core": "workspace:*",
+    "@trellis/transports": "workspace:*"
+  },
+  "devDependencies": {
+    "@types/node": "^22.19.0",
+    "esbuild": "^0.28.2"
+  }
+}
