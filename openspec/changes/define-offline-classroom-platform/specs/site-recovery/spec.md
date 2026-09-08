@@ -5,7 +5,7 @@ Site recovery makes the loss of a box survivable: documents come back from the r
 ## ADDED Requirements
 
 ### Requirement: Recovery bundle at install
-At install the box SHALL generate a recovery bundle containing the site key, the ACME account key, and the directory encryption key, encrypted under a recovery passphrase, and SHALL offer it as a file and as a printable QR set. The box SHALL require the administrator to confirm the bundle is stored and SHALL remind them at intervals until confirmed. A recovery drill SHALL verify that a bundle decrypts without performing a rebuild.
+At install the box SHALL generate a recovery bundle containing the site key, the ACME account key, the directory encryption key, and the LAN transport identity material (the certificate schedule secret and the DTLS key), encrypted under a recovery passphrase, and SHALL offer it as a file and as a printable QR set. The box SHALL require the administrator to confirm the bundle is stored and SHALL remind them at intervals until confirmed. A recovery drill SHALL verify that a bundle decrypts without performing a rebuild.
 
 #### Scenario: Install without saving the bundle
 - **WHEN** an administrator skips saving the recovery bundle
@@ -42,6 +42,13 @@ Pack site copies SHALL be recoverable from device caches, from publisher files, 
 #### Scenario: Restore by succession
 - **WHEN** a box is replaced by succession with a new site key
 - **THEN** existing licence tokens no longer bind to the site, the store re-issues them for the new key when connectivity exists, and packs are re-processed into new site copies
+
+### Requirement: Recovery of learner record keys
+Learner record keys SHALL NOT be derivable from the site key. They SHALL be recoverable from the encrypted directory backup held on administrator devices when that backup is enabled, and any device that holds a learner record key SHALL re-wrap it to a restored or successor box on request, so that a rebuild regains the keys from the teacher and administrator devices that use them.
+
+#### Scenario: Keys return from teacher devices
+- **WHEN** a rebuilt box holds a learner's log as ciphertext only and the class teacher's laptop connects
+- **THEN** the laptop re-wraps that learner's record key to the box and the box can fold the log again
 
 ### Requirement: Directory recovery
 The directory SHALL be recoverable by re-import from the management system and, where the administrator has enabled it, from an encrypted directory backup held on administrator devices.

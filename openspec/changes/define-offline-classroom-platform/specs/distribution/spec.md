@@ -12,7 +12,7 @@ The box SHALL ship as one executable per supported platform (Linux arm64 and x64
 - **THEN** the box starts, shows its setup code and URL, and serves the application with no further installation
 
 ### Requirement: Flashable Raspberry Pi image
-The platform SHALL provide a flashable image for supported Raspberry Pi models that boots directly into the box, shows the setup code on an attached display and on a status page, and supports both network modes.
+The platform SHALL provide a flashable image for supported Raspberry Pi models, with the Raspberry Pi 5 and its clock battery as the reference hardware, that boots directly into the box, shows the setup code on an attached display and on a status page, and supports both network modes. Models without a battery-backed clock SHALL be supported with the time-source hierarchy in force.
 
 #### Scenario: Pi first boot
 - **WHEN** a school flashes the image and powers the Pi
@@ -45,3 +45,10 @@ The client SHALL be an installable web application that works offline from its s
 #### Scenario: Client update after box update
 - **WHEN** a device connects to a box that has been updated
 - **THEN** the client updates in the background and all local documents and leases remain
+
+### Requirement: Wrapped client for managed tablets
+The platform SHALL provide a native wrapper around the same web client for iPadOS, distributed through Apple School Manager and mobile device management, for fleets where the browser client's storage or transport limits are unacceptable. The wrapper SHALL pin the site key, SHALL use the same LAN transports or a TLS connection whose trust is the site key, and SHALL have no features the browser client lacks.
+
+#### Scenario: iPad fleet deployed by MDM
+- **WHEN** a school pushes the wrapped client to its managed iPads
+- **THEN** each iPad joins the site by the same admission flow and syncs over the LAN with no certificate authority installed

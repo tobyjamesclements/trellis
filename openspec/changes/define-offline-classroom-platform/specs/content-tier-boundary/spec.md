@@ -30,11 +30,11 @@ The system SHALL refuse any merge whose source and target differ in tier, and SH
 - **THEN** the only offered targets are site-tier documents and class assignments, and the open document is not selectable
 
 ### Requirement: Open documents must not reference licensed content
-An open-tier document SHALL NOT contain a reference to a licensed pack address or pack item. The editor SHALL refuse to insert such a reference. A peer that receives an open-tier document containing a licensed reference SHALL quarantine it: it SHALL NOT relay the document further, SHALL mark it for administrator review, and the box SHALL exclude it from the commons.
+An open-tier document SHALL NOT contain a reference to a licensed pack address or pack item. The editor SHALL refuse to insert such a reference. A peer that receives an open-tier document containing a licensed reference SHALL quarantine it: it SHALL NOT relay the document further, SHALL mark it for administrator review, and the box SHALL refuse to publish it as a release.
 
 #### Scenario: Open document with licensed reference is quarantined
 - **WHEN** the box receives an open-tier document that references a licensed pack item
-- **THEN** the box stops relaying that document to other peers and to the commons and lists it in the administrator's review queue
+- **THEN** the box stops relaying that document to other peers, refuses to publish it as a release, and lists it in the administrator's review queue
 
 ### Requirement: Permitted derivative works from licensed packs
 The system SHALL permit a teacher at a licensed site to create the following from a licensed pack, regardless of publisher settings: annotations attached to pack anchors, sequencing of pack items into units and lessons, assignment of pack items to classes and learners, formative marks and comments about learner work on pack items, and private teaching notes. Annotations and notes that embed licensed excerpts SHALL be site tier. Sequencing and assignment SHALL be recorded as class-log operations that reference pack items by pack address and item path without copying content.
@@ -66,4 +66,4 @@ The system SHALL enforce the tier boundary through representation, refused opera
 
 #### Scenario: Manually copied content is traceable, not prevented
 - **WHEN** a person retypes licensed material into an open document and shares it
-- **THEN** the system has not blocked the act, but any rendered licensed source they worked from carried the site watermark and the commons accepts quarantine reports against the shared document
+- **THEN** the system has not blocked the act, but any rendered licensed source they worked from carried the site watermark and the commons registry accepts takedown reports against any release containing it

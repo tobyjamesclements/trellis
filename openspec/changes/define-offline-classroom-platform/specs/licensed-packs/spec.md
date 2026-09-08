@@ -5,7 +5,7 @@ Licensed packs are the commercial content unit: signed, encrypted, versioned, co
 ## ADDED Requirements
 
 ### Requirement: Pack bundle format
-A licensed pack SHALL be a single file consisting of a publisher-signed manifest and an encrypted payload. The manifest SHALL carry: a stable pack family identifier, a version, the content address of the previous version if any, the publisher key identifier and the publisher's certificate chain to the project root, the pack kind (native content, SCORM 1.2, SCORM 2004, QTI, or other opaque), the hash of the plaintext payload, the encryption scheme and content key identifier, and catalogue metadata (title, description, cover image, size) in cleartext. The item index and all content SHALL be inside the encrypted payload. The pack SHALL be addressed by the hash of the entire file.
+A licensed pack SHALL be a single file consisting of a publisher-signed manifest and an encrypted payload. The manifest SHALL carry: a stable pack family identifier, a version, the content address of the previous version if any, the publisher key identifier and the publisher's certificate chain to the project root, the pack kind (native content, cmi5, SCORM 1.2, SCORM 2004, QTI, or other opaque), the hash of the plaintext payload, the encryption scheme and content key identifier, and catalogue metadata (title, description, cover image, size) in cleartext. The item index and all content SHALL be inside the encrypted payload. The pack SHALL be addressed by the hash of the entire file.
 
 #### Scenario: Catalogue shows an installed but unlicensed pack
 - **WHEN** a pack file is installed on a box that holds no licence for it
@@ -37,11 +37,15 @@ Each pack version SHALL be a distinct content address linked to its predecessor 
 - **THEN** both versions remain available, new assignments default to version 3, and the unit continues to resolve version 2
 
 ### Requirement: Site copy with per-site watermark
-On activation of a licence, the box SHALL produce a site copy of the pack: it SHALL decrypt the publisher payload with the content key from the licence, SHALL embed a site watermark carrying the site identifier and licence identifier into media where the media type supports robust marking and into rendered text as a visible margin mark configuration, SHALL re-encrypt the result under a per-pack site key, and SHALL retain the original publisher ciphertext for reprocessing. Only the site copy SHALL ever be relayed to devices. The publisher content key SHALL never leave the box.
+On activation of a licence, the box SHALL produce a site copy of the pack: it SHALL decrypt the publisher payload with the content key from the licence, SHALL embed a site watermark carrying the site identifier and licence identifier into images and into the text rendering configuration, SHALL leave video and audio unmodified because transcoding them on the box is impractical, SHALL re-encrypt the whole result under a per-pack site key, and SHALL retain the original publisher ciphertext for reprocessing. Re-encryption SHALL happen for every pack, including packs with no markable media, so that a leaked key unlocks one site's copy only. Only the site copy SHALL ever be relayed to devices. The publisher content key SHALL never leave the box.
 
-#### Scenario: Leaked media traces to the site
+#### Scenario: Leaked image traces to the site
 - **WHEN** an image from a pack is found outside the school
 - **THEN** the watermark embedded during site-copy generation identifies the site and licence it was produced for
+
+#### Scenario: Video relies on the visible mark
+- **WHEN** a video from a pack is played on a leased device
+- **THEN** the player overlays the visible site and lease mark, and the design records that a captured video traces to the site only through that overlay
 
 #### Scenario: Device receives only the site copy
 - **WHEN** a leased device fetches a pack
@@ -55,7 +59,7 @@ A device SHALL render licensed content only while it holds a valid lease coverin
 - **THEN** the device stops rendering that pack's content and discards the wrapped key while retaining the encrypted site copy so a renewed lease restores access without a new download
 
 ### Requirement: SCORM and other opaque packages as packs
-A pack of kind SCORM 1.2 or SCORM 2004 SHALL contain the package zip unchanged inside the encrypted payload, and the system SHALL launch it through the local SCORM runtime without extracting it to durable storage. The same wrapping SHALL apply to other opaque package kinds.
+A pack of kind cmi5, SCORM 1.2, or SCORM 2004 SHALL contain the package unchanged inside the encrypted payload, and the system SHALL launch it through the local runtime without extracting it to durable storage. The same wrapping SHALL apply to other opaque package kinds.
 
 #### Scenario: Launch a licensed SCORM package offline
 - **WHEN** a student with a valid lease opens a SCORM pack while offline

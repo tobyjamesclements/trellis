@@ -12,7 +12,7 @@ The box and each device SHALL keep loaded documents in an LRU cache keyed by doc
 - **THEN** the box loads the requested document from storage, evicts the least recently used document if needed, and syncs without error
 
 ### Requirement: Compaction per document family
-The system SHALL compact as follows. Open-tier content documents SHALL retain full history; the box MAY offer a squash fork that records the squash in provenance and retains the original. Site-tier learner documents and learner logs SHALL be squashed at retention boundaries. Class and site logs SHALL be compacted by epoch sealing. Compaction SHALL never alter folded state or verified lineage.
+The system SHALL compact as follows. Open-tier content documents SHALL retain full history; the box MAY offer a squash fork that records the squash in provenance and retains the original. Learner logs SHALL be retired at retention boundaries by destroying the learner record key and then deleting the ciphertext; learner-owned content documents SHALL be squashed or dropped at the same boundaries. Class and site logs SHALL be compacted by epoch sealing. Compaction SHALL never alter folded state or verified lineage.
 
 #### Scenario: Large open document offered a squash fork
 - **WHEN** an open document's history exceeds the configured threshold

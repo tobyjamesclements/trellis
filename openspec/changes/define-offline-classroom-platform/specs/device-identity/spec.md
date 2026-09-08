@@ -12,7 +12,11 @@ On first run a device SHALL generate an asymmetric signing keypair in the platfo
 - **THEN** the device holds a keypair and can present its public key for admission without any account creation
 
 ### Requirement: Admission by code or QR
-A device SHALL join a site by presenting its public key together with an admission code displayed by the box or by a teacher device as text and QR. Admission codes SHALL be time-limited, SHALL be bound to a role and, for students, to a class and optionally to a learner reference, and SHALL be usable by multiple devices only when the teacher chooses a class-wide code. A successful admission SHALL be recorded as a site-log operation signed by an authorised key and SHALL return the site's public key, which the device SHALL pin for all later verification.
+A device SHALL join a site by presenting its public key together with an admission code displayed by the box or by a teacher device as text and QR. Admission codes SHALL be time-limited, SHALL be bound to a role and, for students, to a class and optionally to a learner reference, and SHALL be usable by multiple devices only when the teacher chooses a class-wide code. The QR form SHALL also carry, signed by the site key, the box's LAN addresses, the site key fingerprint, the current LAN transport parameters, and the shell URL, so that the device can reach and verify the box without name resolution. A successful admission SHALL be recorded as a site-log operation signed by an authorised key and SHALL return the site's public key, which the device SHALL pin for all later verification.
+
+#### Scenario: Admission without name resolution
+- **WHEN** a student scans the teacher's QR on a network where the box's hostname does not resolve
+- **THEN** the device connects to the box's LAN address over a pinned transport, verifies the site key fingerprint from the QR, and completes admission
 
 #### Scenario: Whole class admitted from one code
 - **WHEN** a teacher shows a ten-minute class code and thirty students enter it
@@ -28,6 +32,13 @@ The system SHALL support the roles administrator, teacher, and student, and a sh
 #### Scenario: Setup creates the first administrator
 - **WHEN** a teacher enters the box's install-time setup code from their laptop
 - **THEN** that laptop is admitted as an administrator device and the setup code is invalidated
+
+### Requirement: Passkey-backed staff identity
+An administrator or teacher device MAY register a passkey with the site at admission, recorded as a site-log operation carrying the passkey's public key. A replacement device that presents a valid assertion for a registered passkey SHALL be admitted with the same role and staff reference without an admission code, and the box SHALL offer to revoke the previous device key. Passkeys SHALL NOT be used for student identity.
+
+#### Scenario: Teacher replaces a lost laptop
+- **WHEN** a teacher signs in on a new laptop with the passkey synced by their platform account
+- **THEN** the box admits the new device key with the teacher role and offers to revoke the lost device
 
 ### Requirement: Revocation and re-issue for lost devices
 A teacher or administrator SHALL be able to revoke a device. Revocation SHALL be a site-log operation after which the box refuses sync and lease renewal to that key, and every fold discards later operations from it. A replacement device SHALL be admitted against the same learner reference, and the learner's documents and logs SHALL be shared to it so the learner continues with their existing work. The system SHALL document that unsynced work on the lost device is lost and that the lost device retains licensed rendering until its lease grace ends.

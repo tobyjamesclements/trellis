@@ -16,7 +16,7 @@ The system SHALL represent every open-tier content document as a single Automerg
 - **THEN** the image is stored as an open-tier bundle addressed by its content hash and the document holds only that reference
 
 ### Requirement: Every open document carries provenance metadata
-Every open-tier content document SHALL carry a provenance record containing: the origin document identifier and the heads at which it was created; an ordered list of fork events, each recording the source document identifier, the source heads, the forking author identifier, and the forking site identifier; the list of author identifiers who contributed; and the content licence as an SPDX identifier. Author identifiers in provenance SHALL be attribution handles chosen by authors for public display, never roster identity data.
+Every open-tier content document SHALL carry a provenance record containing: the origin document identifier and the heads at which it was created; an ordered list of fork, merge, and publication events, each recording the source document identifier, the source heads, the acting author identifier, and the acting site identifier; the list of author identifiers who contributed; and the content licence as an SPDX identifier. Author identifiers in provenance SHALL be attribution handles chosen by authors for public display, never roster identity data.
 
 #### Scenario: New document records its origin
 - **WHEN** a teacher creates a new open document
@@ -55,12 +55,19 @@ The system SHALL produce a structural diff between any two points in one documen
 - **WHEN** a teacher compares their fork with the source document it was forked from
 - **THEN** the system shows the changes made on each side since the fork point, attributed to the authors who made them
 
+### Requirement: Provenance events are signed
+Every origin, fork, merge, and publication event in a provenance record SHALL be signed by the device key of the actor that performed it and SHALL name the actor's site identifier. A peer SHALL treat an unsigned or wrongly signed event as absent.
+
+#### Scenario: Fork event carries a verifiable signature
+- **WHEN** a teacher forks a document
+- **THEN** the appended fork event verifies against the teacher's device key and any peer can check it without inspecting the change history
+
 ### Requirement: Lineage is tamper-evident
-A peer receiving an open document SHALL verify that the provenance record is consistent with the document's own change history: the origin and each fork event SHALL correspond to heads that exist in the history, and provenance entries present at the recorded fork heads SHALL still be present. A document that fails this check SHALL be marked "lineage unverified" on that peer, SHALL NOT be relayed to any peer outside the site, and SHALL be reported to the site administrator.
+A peer receiving an open document SHALL verify that the provenance record is consistent with the document's own change history and with the event signatures: the origin and each fork event SHALL correspond to heads that exist in the history, each event SHALL carry a valid signature, and provenance entries present at the recorded fork heads SHALL still be present. A document that fails this check SHALL be marked "lineage unverified" on that peer, SHALL NOT be published to the commons registry, and SHALL be reported to the site administrator.
 
 #### Scenario: Removed attribution is detected
 - **WHEN** a document arrives whose current provenance omits an author that the history shows was present at the recorded fork heads
-- **THEN** the receiving peer marks it lineage unverified and the box refuses to relay it to the commons
+- **THEN** the receiving peer marks it lineage unverified and the box refuses to publish it to the commons registry
 
 ### Requirement: Licence inheritance on fork
 A fork SHALL inherit the licence of its source. The system SHALL allow the licence of a fork to be changed only to a licence the source licence permits, and SHALL refuse changes that remove a share-alike obligation.

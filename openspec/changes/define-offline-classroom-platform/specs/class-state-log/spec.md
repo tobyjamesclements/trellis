@@ -22,6 +22,17 @@ Every operation SHALL be a record containing: a UUID operation identifier; an op
 - **WHEN** two offline devices each append operations and later sync
 - **THEN** both sets of records are present and no record is lost or overwritten regardless of arrival order
 
+### Requirement: Learner-log payloads are encrypted under per-learner keys
+In a learner log, the payload of every record SHALL be encrypted with authenticated encryption under that learner's record key, the record envelope (identifier, type, schema version, signer, actor, sequence number, Lamport clock, previous hash, and informational time) SHALL remain in clear, and the signature SHALL cover the envelope and the ciphertext. A peer without the key SHALL still be able to store, deduplicate, order, verify signatures on, and relay records, and SHALL fold them only as opaque entries. Class and site logs SHALL NOT be encrypted, because they carry references and structure only.
+
+#### Scenario: Ciphertext-only replica still syncs
+- **WHEN** a successor box that has not yet received a learner's record key holds that learner's log
+- **THEN** it stores, orders, and relays the records to entitled devices and cannot read their contents until the key is re-wrapped to it
+
+#### Scenario: Sealed epoch without its key
+- **WHEN** a learner's record key has been destroyed and a sealed epoch of their log remains on the box
+- **THEN** the epoch's records verify structurally and no payload can be recovered
+
 ### Requirement: State is a deterministic fold evaluated on read
 The system SHALL derive state by folding over the log: verify each record's signature against the signer key known from the site log; discard records whose signer lacked authority for that operation type at the record's logical time; order the remaining records by Lamport clock, then signer key, then sequence number; and apply the per-type reducer. The fold SHALL be deterministic: the same set of records SHALL yield the same state on every peer independent of arrival order. Peers MAY cache the folded state but SHALL treat the log as the source of truth.
 
