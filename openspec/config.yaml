@@ -1,0 +1,31 @@
+schema: spec-driven
+
+# Project context shown to AI when creating artifacts.
+context: |
+  Trellis: an offline-first, LAN-local classroom platform built on Automerge
+  CRDTs with a content marketplace (open tier + licensed packs).
+  Tech stack: TypeScript monorepo (PWA client, box server, shared DSL/fold),
+  Automerge core (WASM) + automerge-repo for sync. Rust is an option for the
+  box later; Java is excluded (automerge-java is core-only).
+  Deployment: a "box" (Raspberry Pi or cheap laptop) is the always-on peer and
+  licence anchor; student devices install a PWA over HTTPS on the LAN.
+  Document families: open/site-tier Automerge content docs, content-addressed
+  bundles (licensed packs are encrypted bundles), and signed append-only
+  operation logs (site, class, learner) folded on read.
+  Standards: xAPI (primary), SCORM via local API shim, OneRoster for
+  enrolment, QTI and Common Cartridge as import/export only.
+  Constraints: no new sync protocol; no tamper-proof client assumed; keep PII
+  out of the CRDT layer (reference learners by opaque IDs); UK schools are data
+  controllers. Out of scope: summative assessment, capability-based auth under
+  eventual consistency, federated identity, authoritative wall-clock time,
+  payment internals.
+
+# Per-artifact rules.
+rules:
+  specs:
+    - Use SHALL for normative requirements and give every requirement at least one WHEN/THEN scenario
+    - Never place licensed-tier material in an Automerge document; reference packs by content address
+    - Identify learners by opaque learner references, never by roster identity
+  design:
+    - Record residual risk explicitly rather than specifying protection that cannot be delivered on an untrusted client
+    - Flag conflicts between offline-first behaviour and licence enforcement instead of resolving them silently
