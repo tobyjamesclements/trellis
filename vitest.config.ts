@@ -18,6 +18,7 @@ export default defineConfig({
           environment: "node",
           include: ["packages/*/src/**/*.test.ts"],
           exclude: ["**/node_modules/**", "**/dist/**"],
+          setupFiles: ["./packages/core/test/setup.node.ts"],
         },
       },
       {
@@ -25,6 +26,7 @@ export default defineConfig({
           name: "browser",
           include: ["packages/core/src/**/*.test.ts"],
           exclude: ["**/node_modules/**", "**/dist/**"],
+          setupFiles: ["./packages/core/test/setup.browser.ts"],
           browser: {
             enabled: true,
             headless: true,
