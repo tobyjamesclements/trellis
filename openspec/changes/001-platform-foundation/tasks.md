@@ -39,6 +39,8 @@
 - [ ] 5a.2 IAM Identity Center with MFA; per-function least-privilege roles; no long-lived keys
 - [ ] 5a.3 Security log pipeline: unsampled security events → CloudWatch → S3 with Object Lock, ≥ 12-month retention
 - [ ] 5a.4 Data classification register and TLS 1.2+/HSTS on every endpoint
+- [ ] 5a.5 Secrets only in KMS and SSM Parameter Store; rotation paths; alerts on human access (SEC-13)
+- [ ] 5a.6 IaC-derived asset inventory reconciled with AWS Config; `trellis-baseline` conformance pack; pipeline-only change path (SEC-16)
 
 ## 6. Observability
 - [ ] 6.1 Dashboards per region: API latency and errors, Lambda cold starts, DynamoDB throttles, stream iterator age, queue age

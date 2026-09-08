@@ -37,7 +37,9 @@ and the tenant provisioning workflow, and it runs the spike.
 - Observability baseline: dashboards, alarms, status page scaffold.
 - Security substrate: operator identity with MFA and least-privilege roles
   (SEC-02), the unsampled immutable security log (SEC-03), data
-  classification and transport encryption (SEC-08).
+  classification and transport encryption (SEC-08), secrets handling
+  (SEC-13), and the IaC-derived asset inventory with the Config
+  conformance pack (SEC-16).
 
 ## Impact
 
@@ -58,6 +60,8 @@ and the tenant provisioning workflow, and it runs the spike.
 - SEC-02
 - SEC-03
 - SEC-08
+- SEC-13
+- SEC-16
 
 ## Dependencies
 

@@ -85,6 +85,8 @@ encrypted under the tenant key; `S` = system, tenant key).
 | `retention.v1` | ADM | T | `_admin` | admin | S | Retention policy |
 | `audit.v1` | ADM | T | `_admin` | region system device | S | Administrative action audit |
 | `takedown.v1` | ADM | T | `_admin` | admin / moderator / operator | S | Takedown order naming a target fact; body shredded in every region (ADM-12) |
+| `sec.policy.v1` | SEC | T | `_admin` | admin / operator | S | Tenant security policy, LWW per field (replica idle-purge ceiling, abuse thresholds, verified-IdP requirement, evidence-pack schedule) |
+| `abuse.v1` | SEC | L or T | `_profile` / `_admin` | region system device / operator / admin | P/S | Abuse verdict (quarantine or release), max-by-HLC; never refuses learning facts |
 
 Rules:
 

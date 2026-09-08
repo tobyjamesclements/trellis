@@ -18,14 +18,20 @@ pricing. Figures are order-of-magnitude.
 | Data interop (DIO) | ≈ $6 | ≈ $530 | OneRoster provider reads; Caliper egress |
 | Credentialing and competencies (CRD) | ≈ $10–14 | ≈ $700 | KMS key rental; 24 h Step Functions waits |
 | Administration and tenancy (ADM) | ≈ $85 (≈ $65 zone floor + $20 variable, WAF included) | ≈ $1,850 | Fixed floor: Route 53, KMS, health checks, dashboards, WAF |
+| Security and assurance (SEC) | ≈ $80 per zone (≈ $60 fixed) † | ≈ $700 | GuardDuty, Security Hub, Config, Inspector, CloudTrail, Object Lock storage; penetration testing outside the AWS bill |
+| Client platform and accessibility (UIX) | ≈ $0.2 AWS (bundle delivery within the CloudFront free tier); ≈ $235 with † CI browser-matrix and assistive-technology tooling | ≈ $705 AWS | Nothing user-facing costs the server; the money is in testing |
 
-**Order of magnitude at L10k:** roughly **$200–230 per month** for a
-two-region zone serving one 10,000-learner tenant, of which about $65 is
-the fixed floor that is shared by every tenant in the zone and about $30 is
-email. That is **≈ $0.02 per active learner per month**. Storage adds about
-$3 per month for every month of history.
+**Order of magnitude at L10k:** roughly **$290–320 per month** of AWS
+spend for a two-region zone serving one 10,000-learner tenant, of which
+about $125 is the fixed floor shared by every tenant in the zone (the
+$65 platform floor plus ≈ $60 of security tooling) and about $30 is email.
+That is **≈ $0.03 per active learner per month**; the GraalJS-hosted engine
+adds about $9 over a compiled engine, recoverable with the JIT lever.
+Storage adds about $3 per month for every month of history. Engineering
+tooling marked † (CI browser matrices, assistive-technology licences,
+penetration testing) sits outside the AWS bill.
 
-**At 1M learners:** roughly **$16,000–17,000 per month**, ≈ $0.017 per
+**At 1M learners:** roughly **$18,000–19,000 per month**, ≈ $0.019 per
 active learner, with content egress (CloudFront beyond the 1 TB free tier)
 the largest single line and the only one whose growth is set by
 instructional design rather than by learner count.
@@ -39,8 +45,10 @@ instructional design rather than by learner count.
    non-linearities to watch are Step Functions Standard waits (24 h
    credential windows at $25 per million transitions) and CloudFront egress
    once a tenant leaves the free tier.
-3. Idle cost is the zone floor (≈ $60/month) plus ≈ $3 per tenant per month.
-   Everything else is zero when nobody is learning.
+3. Idle cost is the zone floor (≈ $60/month platform plus ≈ $60/month
+   security tooling) plus ≈ $3 per strict tenant per month; soft
+   organisations add nothing. Everything else is zero when nobody is
+   learning.
 4. Rejected services would each have cost more than the whole platform at
    L10k: OpenSearch Serverless (~$700/month floor), Aurora Serverless v2
    (~$43/month floor per writer, single-region), ElastiCache (≥ $12/month

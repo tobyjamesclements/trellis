@@ -26,6 +26,9 @@ version before the first assessment.
 - Annual penetration test scope and remediation tracking.
 - CAF evidence pack generator and the customer-facing Cloud Security
   Principles statement.
+- Multi-tenancy isolation probe and threat controls (SEC-12), consumer-
+  realm abuse controls including email abuse (SEC-14), and interop-surface
+  hardening (SEC-15).
 
 ## Impact
 
@@ -42,6 +45,9 @@ version before the first assessment.
 - SEC-09
 - SEC-10
 - SEC-11
+- SEC-12
+- SEC-14
+- SEC-15
 
 ## Dependencies
 

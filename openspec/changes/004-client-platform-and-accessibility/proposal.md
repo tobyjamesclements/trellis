@@ -23,7 +23,12 @@ performance budgets instead of retrofitting them.
 - Local replica protection (session-bound encryption for instructor and
   admin replicas), privacy-preserving telemetry ingest.
 - Static hosting of versioned bundles on S3 and CloudFront; service-worker
-  update strategy with engine version pinning.
+  update strategy with engine version pinning (UIX-13) and the published
+  browser and device matrix (UIX-14).
+- The consumer-realm and organisation admin interfaces (UIX-15), the
+  instructor freshness rendering contract (UIX-16), the accessible
+  Automerge editor (UIX-17) and the sanitising content sink under a strict
+  Content Security Policy (UIX-18).
 
 ## Impact
 
@@ -45,6 +50,12 @@ performance budgets instead of retrofitting them.
 - UIX-10
 - UIX-11
 - UIX-12
+- UIX-13
+- UIX-14
+- UIX-15
+- UIX-16
+- UIX-17
+- UIX-18
 
 ## Dependencies
 

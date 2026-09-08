@@ -16,6 +16,11 @@
 ## 4. Device data protection (SEC-09)
 - [ ] 4.1 Policy configuration (idle purge period, encryption) wired to the client mechanism (UIX-09); instructor pull scope limits
 
+## 4a. Isolation, abuse and interop hardening (SEC-12, SEC-14, SEC-15)
+- [ ] 4a.1 Continuous cross-tenant isolation probe with zero-tolerance alerting
+- [ ] 4a.2 Consumer-realm abuse controls: per-address, network and account limits; email SPF/DKIM/DMARC, suppression, complaint alarms; `abuse.v1` quarantine
+- [ ] 4a.3 Interop hardening: scope checks, JWKS rotation tests, launch and registration validation, hardened parsers, SSRF-safe egress, webhook signing tests
+
 ## 5. Assurance (SEC-10, SEC-11)
 - [ ] 5.1 Penetration test scope, engagement, remediation tracking, retest
 - [ ] 5.2 Evidence pack generator and Cloud Security Principles statement
