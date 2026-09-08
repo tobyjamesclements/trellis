@@ -45,3 +45,10 @@ A device SHALL delete its local replica of a document when the box instructs it 
 #### Scenario: Retired learner's documents removed from a teacher device
 - **WHEN** a learner is retired and the teacher's device next syncs
 - **THEN** the device deletes that learner's log and documents and records a drop acknowledgement
+
+### Requirement: Durability under abrupt power loss
+The box SHALL write documents, logs, keys, and pack copies so that loss of power at any moment corrupts nothing already stored and loses at most the changes in flight, which devices resend at their next contact. The box SHALL check and repair its storage on every boot, SHALL minimise write amplification on flash media, and SHALL count unclean shutdowns and show them on the status page.
+
+#### Scenario: Power cut during a lesson
+- **WHEN** the box loses power while thirty devices are syncing
+- **THEN** it boots cleanly, every document and log it had stored is intact, and the devices resend the changes that were in flight

@@ -5,7 +5,7 @@ Licensed packs are the commercial content unit: signed, encrypted, versioned, co
 ## ADDED Requirements
 
 ### Requirement: Pack bundle format
-A licensed pack SHALL be a single file consisting of a publisher-signed manifest and an encrypted payload. The manifest SHALL carry: a stable pack family identifier, a version, the content address of the previous version if any, the publisher key identifier and the publisher's certificate chain to the project root, the pack kind (native content, cmi5, SCORM 1.2, SCORM 2004, QTI, or other opaque), the hash of the plaintext payload, the encryption scheme and content key identifier, and catalogue metadata (title, description, cover image, size) in cleartext. The item index and all content SHALL be inside the encrypted payload. The pack SHALL be addressed by the hash of the entire file.
+A licensed pack SHALL be a single file consisting of a publisher-signed manifest and an encrypted payload. The manifest SHALL carry: a stable pack family identifier, a version, the content address of the previous version if any, the publisher key identifier and the publisher's certificate chain to the project root, the pack kind (native content, cmi5, SCORM 1.2, SCORM 2004, QTI, or other opaque), the hash of the plaintext payload, the encryption scheme and content key identifier, and catalogue metadata (title, description, cover image, size, language tag) in cleartext. The item index and all content SHALL be inside the encrypted payload. The pack SHALL be addressed by the hash of the entire file.
 
 #### Scenario: Catalogue shows an installed but unlicensed pack
 - **WHEN** a pack file is installed on a box that holds no licence for it
@@ -71,3 +71,10 @@ An administrator SHALL be able to remove a pack from the site. Removal SHALL del
 #### Scenario: Removed pack disappears from devices
 - **WHEN** an administrator removes a pack and a leased device next contacts the box
 - **THEN** the device deletes its cached site copy and the wrapped key for that pack
+
+### Requirement: Resumable transfer over unreliable links
+Pack downloads from the store to the box and pack fetches from the box to devices SHALL be resumable by content address, so that a dropped connection continues from where it stopped rather than starting again, and a partially transferred pack SHALL never be installed or rendered.
+
+#### Scenario: Download over a patchy connection
+- **WHEN** a two-gigabyte pack download from the store drops four times
+- **THEN** each retry resumes from the last complete part and the pack installs only once its hash verifies

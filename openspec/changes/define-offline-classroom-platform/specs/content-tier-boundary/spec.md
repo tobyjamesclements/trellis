@@ -5,7 +5,7 @@ The tier boundary keeps paid content out of the open commons and keeps the open 
 ## ADDED Requirements
 
 ### Requirement: Three tiers with fixed representations
-The system SHALL classify every content artefact into exactly one tier at creation. The **open** tier SHALL contain forkable Automerge content documents and plaintext bundles intended for sharing. The **site** tier SHALL contain Automerge content documents and plaintext bundles bound to one site, used for teacher-created derivative works and for learner work. The **licensed** tier SHALL contain only encrypted, signed packs referenced by content address; licensed material SHALL never exist as an Automerge document.
+The system SHALL classify every content artefact into exactly one tier at creation. The **open** tier SHALL contain forkable Automerge content documents and plaintext bundles intended for sharing. The **site** tier SHALL contain Automerge content documents and plaintext bundles bound to one site, used for teacher-imported files, class collaborations, teacher-created derivative works, and learner work. The **licensed** tier SHALL contain only encrypted, signed packs referenced by content address; licensed material SHALL never exist as an Automerge document.
 
 #### Scenario: Licensed pack has no document form
 - **WHEN** any component attempts to create an Automerge document whose tier is licensed
@@ -66,4 +66,4 @@ The system SHALL enforce the tier boundary through representation, refused opera
 
 #### Scenario: Manually copied content is traceable, not prevented
 - **WHEN** a person retypes licensed material into an open document and shares it
-- **THEN** the system has not blocked the act, but any rendered licensed source they worked from carried the site watermark and the commons registry accepts takedown reports against any release containing it
+- **THEN** the system has not blocked the act, but any rendered licensed source they worked from carried the site watermark, and the residual is a matter for licence terms rather than software

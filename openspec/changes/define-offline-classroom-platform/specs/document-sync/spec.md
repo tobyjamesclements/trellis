@@ -19,7 +19,7 @@ The platform SHALL provide these transports to the box's LAN address. **Hash-pin
 - **THEN** it connects over hash-pinned WebTransport using the schedule it holds and syncs normally
 
 #### Scenario: Safari device
-- **WHEN** an iPad running the browser client connects to the box
+- **WHEN** a device running Safari connects to the box
 - **THEN** it uses signalling-free WebRTC, verifies the box's DTLS fingerprint against the site-signed value it holds, and syncs normally
 
 #### Scenario: Impersonating box on the LAN
@@ -36,17 +36,6 @@ The box SHALL deliver to each device, signed by the site key: its LAN addresses 
 #### Scenario: Box address changed while the device was away
 - **WHEN** the box's LAN address has changed since a device's last contact
 - **THEN** the device tries its last known addresses, then the hostname, and the box status page recommends a fixed address in join-existing-LAN mode
-
-### Requirement: Local network permission
-When the shell was loaded from a public origin, the client SHALL request the browser's local-network permission at a deliberate moment during admission, SHALL explain why it is needed, and SHALL explain what will not work if it is refused. Shells loaded from the box's own hostname SHALL not need the permission because the document is already in the local address space.
-
-#### Scenario: Chrome prompts once
-- **WHEN** a student admitted from the public origin first connects to the box
-- **THEN** the browser shows its local-network prompt once, the application explains it beforehand, and after approval the device syncs without further prompts
-
-#### Scenario: Permission refused
-- **WHEN** a student refuses the prompt
-- **THEN** the application explains that work stays on the device until the permission is granted, and shows how to grant it
 
 ### Requirement: Authenticated connections
 A peer SHALL prove possession of an admitted, unrevoked device key by challenge-response before any document is shared. Unauthenticated connections SHALL be offered only the admission flow. Where a transport cannot verify the device's identity at the transport layer, this application-level proof SHALL be the device's authentication.
@@ -88,11 +77,11 @@ The box SHALL serve a pack's site copy only to a device presenting a valid lease
 - **THEN** the box refuses and the device shows that a lease is required
 
 ### Requirement: No live sync outside the site
-The box SHALL NOT establish document sync with any peer outside the site. Cross-site sharing of open-tier content SHALL happen only by publishing and pulling releases through the commons registry as specified by content interchange, so that no site-tier document, log, or pack byte can ever be offered to an external peer.
+The box SHALL NOT establish document sync with any peer outside the site, so that no site-tier document, log, or pack byte can ever be offered to an external peer. Content SHALL leave the site only by an explicit export performed by a teacher.
 
 #### Scenario: External peer attempts to sync
 - **WHEN** a peer that is not an admitted device of the site attempts to open a sync connection to the box
-- **THEN** the box refuses, and the only external interaction the box performs for sharing is publishing or pulling a release
+- **THEN** the box refuses, and the only way content leaves the site is an explicit export by a teacher
 
 ### Requirement: Sync resumes incrementally
 After any interruption, sync SHALL resume by exchanging only the changes the other peer lacks, and a device returning after weeks offline SHALL receive every change made in its absence for documents it is entitled to.

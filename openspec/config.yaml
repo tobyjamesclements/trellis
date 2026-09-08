@@ -3,22 +3,30 @@ schema: spec-driven
 # Project context shown to AI when creating artifacts.
 context: |
   Trellis: an offline-first, LAN-local classroom platform built on Automerge
-  CRDTs with a content marketplace (open tier + licensed packs).
-  Tech stack: TypeScript monorepo (PWA client, box server, shared DSL/fold),
-  Automerge core (WASM) + automerge-repo for sync. Rust is an option for the
-  box later; Java is excluded (automerge-java is core-only).
-  Deployment: a "box" (Raspberry Pi or cheap laptop) is the always-on peer and
-  licence anchor; student devices install a PWA over HTTPS on the LAN.
-  Document families: open/site-tier Automerge content docs, content-addressed
+  CRDTs, sold to schools in parts of Latin America and East Africa (patchy
+  internet, often only at school, unreliable power) as a box per site plus a
+  site licence per content pack per box. Data stays local to the box; nothing
+  is reported centrally. Interfaces in English and Spanish at launch.
+  Core loop: a teacher names a class, gets a URL and a code, adds packs from
+  the stock room and their own PDF/EPUB/SCORM/QTI files and collaborations,
+  presses start; students join by code with a name and a PIN on shared lab PCs
+  or loaned laptops, chat, do homework, and take laptops home offline.
+  Tech stack: TypeScript monorepo (PWA client, box server, shared DSL/fold,
+  transport adapters), Automerge core (WASM) + automerge-repo for sync. Rust is
+  an option for the box later; Java is excluded (automerge-java is core-only).
+  Document families: content documents (open or site tier), content-addressed
   bundles (licensed packs are encrypted bundles), and signed append-only
   operation logs (site, class, learner) folded on read.
-  Standards: xAPI (primary), SCORM via local API shim, OneRoster for
-  enrolment, QTI and Common Cartridge as import/export only.
+  Transport: HTTPS from the box's own hostname for the app shell only; documents
+  and pack bytes over LAN transports authenticated by the site key.
+  Standards: xAPI (primary), cmi5 and SCORM launched locally, QTI imported;
+  OneRoster import and QTI/CC export are second release.
   Constraints: no new sync protocol; no tamper-proof client assumed; keep PII
-  out of the CRDT layer (reference learners by opaque IDs); UK schools are data
-  controllers. Out of scope: summative assessment, capability-based auth under
-  eventual consistency, federated identity, authoritative wall-clock time,
-  payment internals.
+  out of the CRDT layer (opaque learner references); the school is the data
+  controller under its own country's law. Out of scope: summative assessment,
+  capability-based auth under eventual consistency, federated identity,
+  authoritative wall-clock time, payment internals, central reporting.
+  Comparator: Kolibri.
 
 # Per-artifact rules.
 rules:
@@ -26,6 +34,7 @@ rules:
     - Use SHALL for normative requirements and give every requirement at least one WHEN/THEN scenario
     - Never place licensed-tier material in an Automerge document; reference packs by content address
     - Identify learners by opaque learner references, never by roster identity
+    - Keep the stock-room principle: no seat, copy, or device counting anywhere
   design:
     - Record residual risk explicitly rather than specifying protection that cannot be delivered on an untrusted client
     - Flag conflicts between offline-first behaviour and licence enforcement instead of resolving them silently

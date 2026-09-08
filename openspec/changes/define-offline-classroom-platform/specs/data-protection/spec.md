@@ -1,11 +1,11 @@
 ## Purpose
 
-Data protection makes a school's obligations as data controller achievable on an append-only CRDT: learner records are encrypted under keys the school can destroy, learner documents can be dropped, identities are referenced rather than embedded, and no learner data reaches the platform vendor.
+Data protection makes a school's obligations as data controller under its own country's law achievable on an append-only CRDT: learner records are encrypted under keys the school can destroy, learner documents can be dropped, identities are referenced rather than embedded, and no learner data reaches the platform vendor.
 
 ## ADDED Requirements
 
 ### Requirement: Learner data is partitioned into droppable documents
-All data about an individual learner (submissions, marks, comments on their work, learning records, SCORM and cmi5 session data, and learner-owned site-tier documents) SHALL live in that learner's logs and documents. Class and site logs SHALL contain only learner references and operations about class structure.
+All data about an individual learner (submissions, marks, comments on their work, learning records, SCORM and cmi5 session data, and learner-owned site-tier documents) SHALL live in that learner's logs and documents. Class and site logs SHALL contain only learner references, operations about class structure, and class data such as chat messages and collaboration edits attributed by learner reference, which SHALL be tombstoned rather than removed when a learner is retired.
 
 #### Scenario: Deleting one learner touches no shared document
 - **WHEN** a learner is retired
@@ -55,11 +55,11 @@ The box SHALL export everything held for one learner reference (documents, decry
 - **THEN** the bundle contains all of that learner's documents and decrypted records and the administrator resolves the reference to the child using the directory
 
 ### Requirement: No learner data to project-run services
-The registry, the public origin, the commons registry, and any telemetry SHALL never receive learner references, roster data, learner documents, logs, statements, or record keys. Telemetry SHALL be off by default. The commons registry SHALL receive only open-tier releases with attribution handles.
+The registry and any telemetry SHALL never receive learner references, roster data, learner documents, logs, statements, or record keys, and no project-run service SHALL sit on the path of classroom operation. Telemetry SHALL be off by default. Chains, governments, and funders SHALL receive nothing from a box unless the school exports it.
 
-#### Scenario: Commons release inspected
-- **WHEN** a release sent from a box to the commons registry is inspected
-- **THEN** it contains an open document with provenance handles and no learner reference, log, roster field, or key
+#### Scenario: Registry traffic inspected
+- **WHEN** everything a box sends to the registry over a term is inspected
+- **THEN** it contains the box identifier, site public key, addresses, and challenge records and nothing else
 
 ### Requirement: Protection at rest
 The box SHALL store its directory, key store, logs, documents, and pack copies on an encrypted data partition. The platform SHALL document that device-side storage relies on the operating system's protection, that record keys on devices are held in the platform's key store, and that decrypted licensed content is never written to durable storage.

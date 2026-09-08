@@ -11,12 +11,8 @@ The application shell (markup, scripts, service worker, and static assets) SHALL
 - **WHEN** the box's certificate has expired and thirty admitted devices arrive for a lesson
 - **THEN** every device opens the installed application from its service worker cache, syncs with the box over a site-key-authenticated LAN transport, and only a device that has never been admitted is unable to join
 
-### Requirement: Two shell sources
-The shell SHALL be loadable from the box's own hostname under a publicly trusted certificate, and from a project-run public origin. Both sources SHALL serve identical application versions, verified by the box against the signed platform release. A device SHALL partition its stored data by site identifier so that a shell from the public origin can serve more than one site, and SHALL record which source it was installed from so updates come from the same place.
-
-#### Scenario: Install from the public origin
-- **WHEN** a school's devices have internet access but its box has never been able to obtain a certificate
-- **THEN** students install the shell from the public origin, are admitted by QR, and sync with the box over the LAN transport
+### Requirement: The box serves the shell
+The shell SHALL be served by the box from its own hostname, under a publicly trusted certificate or, on managed fleets, under a certificate from the site authority. The box SHALL verify the shell it serves against the signed platform release. A device SHALL partition its stored data by site identifier.
 
 #### Scenario: Install from the box
 - **WHEN** a school's LAN has no route to the internet for devices but the box holds a valid certificate
@@ -41,7 +37,7 @@ The box SHALL attempt renewal whenever one third of the certificate's lifetime r
 
 #### Scenario: Short-lived certificate in 2029
 - **WHEN** the certificate authority issues 47-day certificates
-- **THEN** the box attempts renewal at day 31, and a school that cannot renew for a term keeps syncing while new devices wait for the next renewal or use the public origin
+- **THEN** the box attempts renewal at day 31, and a school that cannot renew for a term keeps syncing while new devices wait for the next renewal
 
 #### Scenario: Warning shown ahead of expiry
 - **WHEN** renewal has failed for two weeks and 14 days of validity remain
@@ -62,7 +58,11 @@ A box MAY generate a site certificate authority whose certificate carries name c
 - **THEN** devices install and update the shell from the box's hostname with no warning throughout, and the authority cannot be used to certify any other name
 
 ### Requirement: Two network modes and offline name resolution
-The box SHALL support a **box-as-network** mode, in which it provides the classroom Wi-Fi network, DHCP, and DNS and answers its own hostname locally, and a **join-existing-LAN** mode, in which it relies on the school's resolver. Name resolution SHALL be needed only to load or update the shell from the box's hostname; the LAN transports SHALL reach the box by address. In join-existing-LAN mode the box SHALL detect when devices cannot resolve its hostname and SHALL report it.
+The box SHALL support a **box-as-network** mode, in which it provides the classroom Wi-Fi network, DHCP, and DNS, answers its own hostname locally, and serves a captive landing page that lists live classes and sends any typed address to the shell hostname, and a **join-existing-LAN** mode, in which it relies on the school's resolver. Name resolution SHALL be needed only to load or update the shell from the box's hostname; the LAN transports SHALL reach the box by address. In join-existing-LAN mode the box SHALL detect when devices cannot resolve its hostname and SHALL report it.
+
+#### Scenario: Student opens any page
+- **WHEN** a student on the box's network opens the browser and types any address
+- **THEN** the landing page appears, lists the live classes, and one tap opens the class join page on the shell hostname
 
 #### Scenario: Internet outage in box-as-network mode
 - **WHEN** the school's internet connection fails for a day
@@ -80,7 +80,7 @@ The installer SHALL test, and report in plain language, whether the school netwo
 - **THEN** the installer reports it, names the setting to change with the hostname to allow, notes that sync is unaffected, and offers box-as-network mode as the alternative
 
 ### Requirement: Behaviour after certificate expiry
-When the shell certificate has expired, devices that already installed the application SHALL open it from the service worker cache and SHALL continue to sync over the LAN transports, shell updates from the box SHALL pause, new devices SHALL be able to join only from the public origin or by a QR that carries the transport parameters, and the platform SHALL show the reason. Renewal SHALL restore full operation without reinstalling anything on any device.
+When the shell certificate has expired, devices that already installed the application SHALL open it from the service worker cache and SHALL continue to sync over the LAN transports, shell updates from the box SHALL pause, new devices SHALL NOT be able to install the shell until renewal except on fleets that trust the site authority, and the platform SHALL show the reason. Renewal SHALL restore full operation without reinstalling anything on any device.
 
 #### Scenario: Expired certificate during a long outage
 - **WHEN** the box has been unable to renew and the certificate has expired
@@ -93,8 +93,8 @@ The shell SHALL never be served over plaintext, the platform SHALL NOT fall back
 - **WHEN** a student opens the box by its raw address rather than its hostname
 - **THEN** the box serves only a page that redirects to the hostname and explains why
 
-### Requirement: Registry and public origin receive no learner data
-The registry SHALL receive only the box identifier, the site public key, LAN addresses, and ACME challenge data. The public origin SHALL receive only shell requests with no site or learner identifiers. Neither SHALL receive school names, user data, documents, or usage data.
+### Requirement: Registry receives no learner data
+The registry SHALL receive only the box identifier, the site public key, LAN addresses, and ACME challenge data. It SHALL NOT receive school names, user data, documents, or usage data.
 
 #### Scenario: Registry data inventory
 - **WHEN** the registry's stored data for a box is inspected
