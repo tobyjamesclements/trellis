@@ -1,0 +1,13 @@
+{
+  "name": "spike-webtransport-hash",
+  "private": true,
+  "type": "module",
+  "description": "Spike 1.2: hash-pinned WebTransport from Chromium to a Node HTTP/3 server",
+  "scripts": {
+    "start": "node run.mjs"
+  },
+  "dependencies": {
+    "@fails-components/webtransport": "^1.4.0",
+    "@fails-components/webtransport-transport-http3-quiche": "^1.4.0"
+  }
+}

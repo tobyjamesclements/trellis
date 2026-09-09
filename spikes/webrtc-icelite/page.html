@@ -1,0 +1,61 @@
+<!doctype html>
+<title>WebRTC ICE-lite spike</title>
+<script>
+  // The device: builds the box's answer from the static parameters it holds
+  // (host, port, ICE credentials, DTLS fingerprint, setup role), so no
+  // signalling exchange takes place.
+  const answerFor = (params, offerSdp) => {
+    const mid = /a=mid:(\S+)/.exec(offerSdp)?.[1] ?? "0";
+    const sctpPort = /a=sctp-port:(\d+)/.exec(offerSdp)?.[1] ?? "5000";
+    return [
+      "v=0",
+      "o=- 0 0 IN IP4 127.0.0.1",
+      "s=-",
+      "t=0 0",
+      "a=ice-lite",
+      `a=group:BUNDLE ${mid}`,
+      "a=msid-semantic: WMS",
+      "m=application 9 UDP/DTLS/SCTP webrtc-datachannel",
+      `c=IN IP4 ${params.host}`,
+      `a=ice-ufrag:${params.ufrag}`,
+      `a=ice-pwd:${params.pwd}`,
+      `a=fingerprint:sha-256 ${params.fingerprint}`,
+      `a=setup:${params.setup}`,
+      `a=mid:${mid}`,
+      `a=sctp-port:${sctpPort}`,
+      "a=max-message-size:262144",
+      `a=candidate:1 1 udp 2130706431 ${params.host} ${params.port} typ host generation 0`,
+      "a=end-of-candidates",
+      "",
+    ].join("\r\n");
+  };
+
+  window.connect = (params, timeoutMs = 8000) =>
+    new Promise((resolve) => {
+      const pc = new RTCPeerConnection({ iceServers: [] });
+      const states = [];
+      pc.oniceconnectionstatechange = () => states.push(`ice ${pc.iceConnectionState}`);
+      pc.onconnectionstatechange = () => states.push(`connection ${pc.connectionState}`);
+      const dc = pc.createDataChannel("trellis");
+      let started = 0;
+      const finish = (outcome) => {
+        clearTimeout(timer);
+        resolve({ ...outcome, states, localFingerprint: /a=fingerprint:sha-256 (\S+)/.exec(pc.localDescription?.sdp ?? "")?.[1] });
+        setTimeout(() => pc.close(), 100);
+      };
+      const timer = setTimeout(() => finish({ ok: false, error: "timeout" }), timeoutMs);
+      dc.onopen = () => {
+        const setupMs = Math.round(performance.now() - started);
+        dc.onmessage = (event) => finish({ ok: true, setupMs, received: event.data });
+        dc.send("hello from the device");
+      };
+      pc.createOffer()
+        .then((offer) => pc.setLocalDescription(offer))
+        .then(() => {
+          started = performance.now();
+          return pc.setRemoteDescription({ type: "answer", sdp: answerFor(params, pc.localDescription.sdp) });
+        })
+        .catch((error) => finish({ ok: false, error: `${error.name}: ${error.message}` }));
+    });
+</script>
+<p>spike</p>

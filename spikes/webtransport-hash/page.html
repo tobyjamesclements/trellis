@@ -1,0 +1,31 @@
+<!doctype html>
+<title>WebTransport hash spike</title>
+<script>
+  const hex = (text) => Uint8Array.from(text.match(/../g), (pair) => parseInt(pair, 16));
+  window.connect = async (url, hashHex, message) => {
+    const options = hashHex ? { serverCertificateHashes: [{ algorithm: "sha-256", value: hex(hashHex) }] } : {};
+    const started = performance.now();
+    const transport = new WebTransport(url, options);
+    try {
+      await transport.ready;
+      const readyMs = performance.now() - started;
+      const stream = await transport.createBidirectionalStream();
+      const writer = stream.writable.getWriter();
+      await writer.write(new TextEncoder().encode(message));
+      await writer.close();
+      const reader = stream.readable.getReader();
+      let received = "";
+      for (;;) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        received += new TextDecoder().decode(value);
+      }
+      const roundTripMs = performance.now() - started;
+      transport.close();
+      return { ok: true, readyMs: Math.round(readyMs), roundTripMs: Math.round(roundTripMs), received };
+    } catch (error) {
+      return { ok: false, error: `${error.name}: ${error.message}` };
+    }
+  };
+</script>
+<p>spike</p>

@@ -1,0 +1,14 @@
+{
+  "name": "spike-webrtc-icelite",
+  "private": true,
+  "type": "module",
+  "description": "Spike 1.5: signalling-free WebRTC data channel from Chromium to an ICE-lite box",
+  "scripts": {
+    "start": "node run.mjs",
+    "start:node-datachannel": "node run-node-datachannel.mjs"
+  },
+  "dependencies": {
+    "node-datachannel": "^0.33.2",
+    "werift": "^0.24.4"
+  }
+}
