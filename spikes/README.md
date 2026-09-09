@@ -11,6 +11,7 @@ transports from what these found.
 | ----- | --------- | ------ |
 | 1.2 hash-pinned WebTransport | `webtransport-hash/` | passed on Chromium; rig checks remain |
 | 1.5 signalling-free WebRTC | `webrtc-icelite/` | passed on Chromium with werift; Firefox and Safari remain |
+| 1.6 automerge-repo adapters | `adapters/` | both transports pass the adapter acceptance suite and a Chromium round trip |
 | 1.7 box capacity | `capacity/` | measured on x86; the Pi numbers remain |
 
 The rig-only spikes (1.1, 1.3, 1.4, 1.8, 1.9) and the real certificate path

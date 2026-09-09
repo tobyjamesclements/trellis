@@ -1,0 +1,23 @@
+{
+  "name": "spike-capacity",
+  "private": true,
+  "type": "module",
+  "description": "Spike 1.7: box capacity with 500 content documents and a 200,000-record log",
+  "scripts": {
+    "prepare": "esbuild ../../packages/core/src/index.ts --bundle --format=esm --platform=neutral --main-fields=module,main --external:@automerge/automerge --external:cborg --outfile=core.bundle.mjs --log-level=warning",
+    "generate": "node generate.mjs",
+    "bench": "node bench.mjs",
+    "bench:bun": "bun bench.mjs"
+  },
+  "dependencies": {
+    "@automerge/automerge": "^3.4.1",
+    "@automerge/automerge-repo": "^2.5.6",
+    "@automerge/automerge-repo-storage-nodefs": "^2.5.6",
+    "@noble/ed25519": "^2.2.3",
+    "cborg": "^6.1.2",
+    "libsodium-wrappers": "^0.7.15"
+  },
+  "devDependencies": {
+    "esbuild": "^0.28.2"
+  }
+}
