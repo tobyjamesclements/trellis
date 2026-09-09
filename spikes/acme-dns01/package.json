@@ -1,0 +1,12 @@
+{
+  "name": "spike-acme-dns01",
+  "private": true,
+  "type": "module",
+  "description": "Spike 1.10 (software half): the box obtains and renews a certificate over ACME DNS-01 through an acme-dns-style challenge service, against the Pebble test CA",
+  "scripts": {
+    "start": "node run.mjs"
+  },
+  "dependencies": {
+    "acme-client": "^5.4.0"
+  }
+}
