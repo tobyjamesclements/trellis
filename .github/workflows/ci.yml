@@ -36,6 +36,9 @@ jobs:
       - name: Typecheck
         run: pnpm typecheck
 
+      - name: Translation report
+        run: pnpm i18n:report
+
       - name: Build
         run: pnpm build
 
@@ -44,3 +47,6 @@ jobs:
 
       - name: Test
         run: pnpm test
+
+      - name: End-to-end shell checks
+        run: pnpm e2e

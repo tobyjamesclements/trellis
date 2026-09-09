@@ -1,0 +1,21 @@
+{
+  "app.name": "Trellis",
+  "home.tagline": "Tus clases, en la caja de esta sala, con o sin internet.",
+  "join.boxUnreachable": "No se puede conectar con la caja. Revisa el Wi-Fi e inténtalo de nuevo.",
+  "join.codeHint": "Tu profesor muestra el código al frente de la clase.",
+  "join.codeLabel": "Código de la clase",
+  "join.invalidCode": "Un código de clase tiene de 4 a 16 letras y números.",
+  "join.submit": "Unirse",
+  "join.title": "Unirse a una clase",
+  "language.choose": "Elige tu idioma",
+  "language.label": "Idioma",
+  "status.offline": "Sin conexión",
+  "status.offlineReady": "Trellis está listo para abrirse sin red.",
+  "status.online": "Conectado a la red",
+  "status.storageBestEffort": "Almacenamiento: sin protección. El navegador podría borrar tu trabajo; mantén este dispositivo en contacto con la caja.",
+  "status.storagePersistent": "Almacenamiento: protegido",
+  "status.storageUnsupported": "Almacenamiento: este navegador no puede guardar el trabajo sin conexión.",
+  "status.storageUsage": "{{usage}} de {{quota}} usados",
+  "status.updateReady": "Hay una actualización lista. Se usará la próxima vez que abras Trellis.",
+  "status.version": "Versión {{version}}"
+}

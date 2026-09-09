@@ -1,0 +1,160 @@
+:root {
+  --ink: #1b1b1b;
+  --paper: #fbfaf7;
+  --accent: #1f6f5f;
+  --accent-ink: #ffffff;
+  --muted: #5d625f;
+  --warning: #8a4b00;
+  --line: #d9d6cf;
+  color-scheme: light;
+  font-family: system-ui, "Segoe UI", Roboto, sans-serif;
+  font-size: 18px;
+  color: var(--ink);
+  background: var(--paper);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  min-height: 100vh;
+}
+
+.shell {
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+}
+
+.bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.75rem 1rem;
+  background: var(--accent);
+  color: var(--accent-ink);
+}
+
+.bar h1 {
+  margin: 0;
+  font-size: 1.25rem;
+}
+
+.switcher {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.switcher select {
+  font: inherit;
+  padding: 0.25rem 0.5rem;
+}
+
+.screen {
+  flex: 1;
+  width: min(100%, 36rem);
+  margin: 0 auto;
+  padding: 1.5rem 1rem;
+}
+
+.screen-centred {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  min-height: 100vh;
+  text-align: center;
+}
+
+.choices {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: grid;
+  gap: 0.75rem;
+}
+
+.choice,
+.primary {
+  font: inherit;
+  font-size: 1.25rem;
+  width: 100%;
+  padding: 0.9rem 1rem;
+  border-radius: 0.5rem;
+  border: 2px solid var(--accent);
+  background: var(--accent);
+  color: var(--accent-ink);
+  cursor: pointer;
+}
+
+.choice:focus-visible,
+.primary:focus-visible,
+.code:focus-visible,
+.switcher select:focus-visible {
+  outline: 3px solid #ffb703;
+  outline-offset: 2px;
+}
+
+.tagline {
+  color: var(--muted);
+  margin-top: 0;
+}
+
+.join {
+  display: grid;
+  gap: 0.5rem;
+  padding: 1rem;
+  border: 1px solid var(--line);
+  border-radius: 0.75rem;
+  background: #ffffff;
+}
+
+.join h2 {
+  margin: 0 0 0.5rem;
+}
+
+.code {
+  font: inherit;
+  font-size: 1.75rem;
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+  padding: 0.5rem 0.75rem;
+  border: 2px solid var(--line);
+  border-radius: 0.5rem;
+}
+
+.hint {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.9rem;
+}
+
+.notice {
+  margin: 0.25rem 0 0;
+  padding: 0.5rem 0.75rem;
+  border-radius: 0.5rem;
+  background: #fff4e0;
+  color: var(--warning);
+}
+
+.status {
+  padding: 0.75rem 1rem;
+  border-top: 1px solid var(--line);
+  color: var(--muted);
+  font-size: 0.9rem;
+}
+
+.status p {
+  margin: 0.15rem 0;
+}
+
+.status .warning {
+  color: var(--warning);
+}
+
+.version {
+  opacity: 0.7;
+}

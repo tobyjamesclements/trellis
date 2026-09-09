@@ -8,3 +8,6 @@ test-results/
 *.log
 .DS_Store
 .vitest/
+playwright-report/
+blob-report/
+dev-dist/

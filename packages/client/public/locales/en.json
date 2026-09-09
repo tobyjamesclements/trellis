@@ -1,0 +1,21 @@
+{
+  "app.name": "Trellis",
+  "home.tagline": "Your classes, on the box in this room, with or without the internet.",
+  "join.boxUnreachable": "Can't reach the box. Check the Wi-Fi and try again.",
+  "join.codeHint": "Your teacher shows the code at the front of the class.",
+  "join.codeLabel": "Class code",
+  "join.invalidCode": "A class code is 4 to 16 letters and numbers.",
+  "join.submit": "Join",
+  "join.title": "Join a class",
+  "language.choose": "Choose your language",
+  "language.label": "Language",
+  "status.offline": "Offline",
+  "status.offlineReady": "Trellis is ready to open without a network.",
+  "status.online": "Connected to the network",
+  "status.storageBestEffort": "Storage: not protected. The browser may remove your work, so keep this device meeting the box.",
+  "status.storagePersistent": "Storage: protected",
+  "status.storageUnsupported": "Storage: this browser cannot keep work offline.",
+  "status.storageUsage": "{{usage}} of {{quota}} used",
+  "status.updateReady": "An update is ready. It will be used the next time Trellis opens.",
+  "status.version": "Version {{version}}"
+}

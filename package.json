@@ -18,7 +18,9 @@
     "build": "pnpm -r run build",
     "test": "vitest run",
     "test:watch": "vitest",
-    "check": "pnpm lint && pnpm typecheck && pnpm build && pnpm test"
+    "check": "pnpm lint && pnpm typecheck && pnpm i18n:report && pnpm build && pnpm test && pnpm e2e",
+    "e2e": "pnpm --filter @trellis/client e2e",
+    "i18n:report": "pnpm --filter @trellis/client i18n:report"
   },
   "devDependencies": {
     "@biomejs/biome": "^2.5.12",

@@ -24,11 +24,22 @@ Requires Node 22 or later and pnpm (the version is pinned in `package.json`;
 
 ```sh
 pnpm install
-pnpm check          # lint, typecheck, build, test: what CI runs
+pnpm check          # lint, typecheck, translation report, build, test, e2e: what CI runs
 pnpm lint:fix       # apply Biome fixes and formatting
 pnpm test:watch     # vitest in watch mode
+pnpm e2e            # build the shell and drive it in Chromium with Playwright
+pnpm i18n:report    # list untranslated interface strings per language
 ```
 
-Tests run under Node and again inside headless Chromium for the shared core,
-so code meant for both the box and the browser is exercised in both. The
-Chromium build comes from `pnpm exec playwright install chromium`.
+Tests run under Node and again inside headless Chromium for the shared core
+and the client, so code meant for both the box and the browser is exercised
+in both. The Chromium build comes from `pnpm exec playwright install chromium`.
+
+## The client shell
+
+`packages/client` is a React application built with Vite. Interface strings
+live in `packages/client/public/locales/<tag>.json`, one flat catalogue per
+language listed in `languages.json`; add a language by adding a file and an
+entry, no code change needed. English is the fallback and must be complete;
+`pnpm i18n:report` lists what other languages still lack. The manifest icons
+are rendered from `public/icons/icon.svg` with `pnpm --filter @trellis/client icons`.
