@@ -298,6 +298,14 @@ The device prefers them in that order. Parameters ride in the QR and are refresh
 
 **Decision**: Ink & Switch's Keyhive and the Beelay sync protocol target exactly the excluded problem, but they are pre-alpha and unaudited. This platform builds the star topology, share policy, and per-learner keys itself, shaped so Keyhive can replace them later: per-document and per-learner symmetric keys wrapped to device keys, signed delegations recorded as operations, and no assumption that the box can read every document.
 
+### D28. Client framework and localisation library
+
+**Decision**: The shell is a React application in TypeScript, built with Vite, binding Automerge documents through the automerge-repo React hooks. Interface strings live in one JSON catalogue per language, loaded by i18next at runtime and cached by the service worker, with English as the fallback language and a report of untranslated keys produced from the catalogues. Locale formatting uses the platform's Intl APIs from the interface language, as D24 requires.
+
+**Rationale**: The Automerge maintainers publish and support the React hooks and the ProseMirror binding the collaboration document needs, so React carries the least integration risk on the editor and overview screens, and it is the framework contributors in the target markets most often know. The runtime is a one-time download that the service worker caches and that is small beside the Automerge WASM module every device loads. Runtime catalogues satisfy D24's rule that a language is added by supplying a translation file, and i18next's missing-key handling yields the translation report the localisation spec requires.
+
+**Alternatives**: Svelte (smallest output; community-maintained Automerge store and no first-party editor binding); Solid (fine-grained reactivity suits CRDT patches; small ecosystem for a long-lived product); vanilla TypeScript or Lit (tiny shell; every later screen hand-binds Automerge state); Fluent for localisation (better Spanish plural and gender grammar; no missing-key report without extra tooling; revisit if translators ask for it). Preact through its compatibility layer remains a drop-in if bundle size ever matters.
+
 ## Threat model and residual risk
 
 The platform's licensing controls are deterrence and traceability. The table records what each control actually achieves against each adversary.
